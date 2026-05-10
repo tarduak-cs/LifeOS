@@ -247,8 +247,8 @@ export default function LifeOS() {
         <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
             <div className="flex min-h-screen">
                 <Sidebar view={view} setView={setView} open={sidebarOpen} setOpen={setSidebarOpen} />
-                <main className={`flex-1 min-w-0 transition-all duration-200 ${sidebarOpen ? 'md:ml-56' : 'md:ml-14'} pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8`}>
-                    <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
+                <main className={`flex-1 min-w-0 transition-all duration-200 ${sidebarOpen ? 'md:ml-64' : 'md:ml-14'} pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8`}>
+                    <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
                         <DateBar date={date} setDate={setDate} view={view} profile={profile} />
                         {view === 'today' && <TodayView {...props} />}
                         {view === 'health' && <HealthView {...props} />}
@@ -289,7 +289,7 @@ function Sidebar({ view, setView, open, setOpen }) {
     ];
     return (
         <>
-            <aside className={`hidden md:flex fixed left-0 top-0 bottom-0 ${open ? 'w-56' : 'w-14'} bg-zinc-900 border-r border-zinc-800 flex-col p-2 transition-all duration-200 z-40`}>
+            <aside className={`hidden md:flex fixed left-0 top-0 bottom-0 ${open ? 'w-64' : 'w-14'} bg-zinc-900 border-r border-zinc-800 flex-col p-2 transition-all duration-200 z-40`}>
                 <div className="flex items-center justify-between mb-4 px-2 py-2">
                     {open && <div><div className="text-base font-medium">LifeOS</div><div className="text-[10px] text-zinc-500">your life, tracked</div></div>}
                     <button onClick={() => setOpen(!open)} className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400" title={open ? "Collapse" : "Expand"}>
@@ -471,7 +471,7 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 md:space-y-8">
             {/* Quote of the day */}
             <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-6">
                 <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em] mb-3">Today's reflection</div>
@@ -509,54 +509,55 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
                 </div>
             </div>
 
-            {/* Compact practice cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card title="Morning practice" subtitle={`${todayRC.morning.length}/${morningRoutine.length} today · ${calcRecentRate('morning').hits} of last 14 days`} action={() => setView('routines')}>
-                    <ProgressBar pct={morningPct} color="amber" />
-                </Card>
-                <Card title="Evening practice" subtitle={`${todayRC.night.length}/${nightRoutine.length} today · ${calcRecentRate('night').hits} of last 14 days`} action={() => setView('routines')}>
-                    <ProgressBar pct={nightPct} color="purple" />
-                </Card>
-            </div>
+            {/* Practices (left) + behaviors (right) — 2-col on lg+ */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-4">
+                    <Card title="Morning practice" subtitle={`${todayRC.morning.length}/${morningRoutine.length} today · ${calcRecentRate('morning').hits} of last 14 days`} action={() => setView('routines')}>
+                        <ProgressBar pct={morningPct} color="amber" />
+                    </Card>
+                    <Card title="Evening practice" subtitle={`${todayRC.night.length}/${nightRoutine.length} today · ${calcRecentRate('night').hits} of last 14 days`} action={() => setView('routines')}>
+                        <ProgressBar pct={nightPct} color="purple" />
+                    </Card>
+                </div>
 
-            {/* Behaviors */}
-            {(behaviors.length > 0 || behaviorsEditing) && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                    <div className="flex items-baseline justify-between mb-3">
-                        <div>
-                            <div className="text-sm font-medium">Today's behaviors</div>
-                            <div className="text-xs text-zinc-500 mt-0.5">Tap to toggle: ✓ yes · ✗ no · ○ skip</div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <SaveIndicator status={behaviorStatus} />
-                            <button onClick={() => setBehaviorsEditing(!behaviorsEditing)} className="text-xs text-zinc-500 hover:text-zinc-300">{behaviorsEditing ? 'Done' : 'Edit'}</button>
-                        </div>
-                    </div>
-                    {behaviors.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                            {behaviors.map(b => {
-                                const v = todayBL[b.id];
-                                const cls = v === true ? 'bg-red-500/20 border-red-500/50 text-red-300' : v === false ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400';
-                                return <button key={b.id} onClick={() => toggleBehavior(b.id)} className={`px-3 py-1.5 rounded-md border text-xs ${cls}`}>{v === true ? '✓' : v === false ? '✗' : '○'} {b.text}</button>;
-                            })}
-                        </div>
-                    )}
-                    {behaviorsEditing && (
-                        <div className="mt-3 pt-3 border-t border-zinc-800 space-y-1">
-                            {behaviors.map(b => (
-                                <div key={b.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 rounded">
-                                    <input value={b.text} onChange={(e) => saveBehaviors(behaviors.map(x => x.id === b.id ? { ...x, text: e.target.value } : x))} className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-zinc-700" />
-                                    <button onClick={() => saveBehaviors(behaviors.filter(x => x.id !== b.id))} className="text-zinc-500 hover:text-red-400 p-1"><Trash2 size={14} /></button>
-                                </div>
-                            ))}
-                            <div className="flex gap-2 mt-2">
-                                <input value={newBehavior} onChange={(e) => setNewBehavior(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addBehavior(); }} placeholder="Add behavior (e.g. cold shower)..." className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-zinc-500" />
-                                <button onClick={addBehavior} disabled={!newBehavior.trim()} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded hover:bg-zinc-700 disabled:opacity-40"><Plus size={14} /></button>
+                {(behaviors.length > 0 || behaviorsEditing) && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 h-full">
+                        <div className="flex items-baseline justify-between mb-3">
+                            <div>
+                                <div className="text-sm font-medium">Today's behaviors</div>
+                                <div className="text-xs text-zinc-500 mt-0.5">Tap to toggle: ✓ yes · ✗ no · ○ skip</div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <SaveIndicator status={behaviorStatus} />
+                                <button onClick={() => setBehaviorsEditing(!behaviorsEditing)} className="text-xs text-zinc-500 hover:text-zinc-300">{behaviorsEditing ? 'Done' : 'Edit'}</button>
                             </div>
                         </div>
-                    )}
-                </div>
-            )}
+                        {behaviors.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {behaviors.map(b => {
+                                    const v = todayBL[b.id];
+                                    const cls = v === true ? 'bg-red-500/20 border-red-500/50 text-red-300' : v === false ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400';
+                                    return <button key={b.id} onClick={() => toggleBehavior(b.id)} className={`px-3 py-1.5 rounded-md border text-xs ${cls}`}>{v === true ? '✓' : v === false ? '✗' : '○'} {b.text}</button>;
+                                })}
+                            </div>
+                        )}
+                        {behaviorsEditing && (
+                            <div className="mt-3 pt-3 border-t border-zinc-800 space-y-1">
+                                {behaviors.map(b => (
+                                    <div key={b.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 rounded">
+                                        <input value={b.text} onChange={(e) => saveBehaviors(behaviors.map(x => x.id === b.id ? { ...x, text: e.target.value } : x))} className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-zinc-700" />
+                                        <button onClick={() => saveBehaviors(behaviors.filter(x => x.id !== b.id))} className="text-zinc-500 hover:text-red-400 p-1"><Trash2 size={14} /></button>
+                                    </div>
+                                ))}
+                                <div className="flex gap-2 mt-2">
+                                    <input value={newBehavior} onChange={(e) => setNewBehavior(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addBehavior(); }} placeholder="Add behavior (e.g. cold shower)..." className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-zinc-500" />
+                                    <button onClick={addBehavior} disabled={!newBehavior.trim()} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded hover:bg-zinc-700 disabled:opacity-40"><Plus size={14} /></button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Evening reflection (only after 6pm local) */}
             {showEvening && (
@@ -640,12 +641,12 @@ function StatCard({ label, value, suffix, sub, accent, index = 0 }) {
         : (value ?? '—');
     return (
         <div
-            className={`${tint} border rounded-xl p-5 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            className={`${tint} border rounded-xl p-5 md:p-6 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
             style={{ transitionDelay: `${index * 50}ms` }}
         >
             <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">{label}</div>
             <div className="flex items-baseline gap-1.5 mt-2">
-                <div className="text-3xl font-semibold text-zinc-50 tabular-nums">{display}</div>
+                <div className="text-3xl md:text-4xl font-semibold text-zinc-50 tabular-nums">{display}</div>
                 {suffix && numeric !== null && <span className="text-sm text-zinc-500 font-normal">{suffix}</span>}
             </div>
             {sub && <div className="text-xs text-zinc-500 mt-1.5">{sub}</div>}
@@ -690,7 +691,7 @@ function SkipButton({ onClick, children }) {
 }
 function Card({ title, subtitle, children, action }) {
     return (
-        <div onClick={action} className={`bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 transition-all ${action ? 'cursor-pointer hover:border-zinc-700 hover:bg-zinc-900' : ''}`}>
+        <div onClick={action} className={`bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 md:p-6 transition-all ${action ? 'cursor-pointer hover:border-zinc-700 hover:bg-zinc-900' : ''}`}>
             <div className="flex items-baseline justify-between mb-4">
                 <div>
                     <div className="text-[15px] font-semibold text-zinc-100">{title}</div>
@@ -727,7 +728,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Morning log</h2><p className="text-sm text-zinc-500 mt-0.5">Daily health check-in</p></div>
+                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Morning log</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Daily health check-in</p></div>
                 <div className="flex items-center gap-3">
                     <SaveIndicator status={saveStatus} />
                     <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
@@ -787,7 +788,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
     );
 }
 
-function Section({ title, children }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4"><h3 className="text-sm font-medium mb-3">{title}</h3><div className="space-y-3">{children}</div></div>; }
+function Section({ title, children }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 md:p-6"><h3 className="text-sm md:text-lg font-medium mb-3">{title}</h3><div className="space-y-3">{children}</div></div>; }
 function Field({ label, children }) { return <div><label className="block text-xs text-zinc-500 mb-1.5">{label}</label>{children}</div>; }
 
 // ============ ROUTINES ============
@@ -818,7 +819,7 @@ function RoutinesView({ date, morningRoutine, saveMR, nightRoutine, saveNR, rout
 
     return (
         <div className="space-y-5">
-            <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Routines</h2><p className="text-sm text-zinc-500 mt-0.5">Edit your morning & night checklists</p></div>
+            <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Routines</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Edit your morning & night checklists</p></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <RoutineEditor
                     title="Morning"
@@ -927,7 +928,7 @@ function RoutineEditor({ title, icon: Icon, color, items, saveItems, completed, 
                                 <div className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-zinc-800/50 group">
                                     <button onClick={() => onToggle(item.id)} className="flex items-center gap-3 flex-1 text-left">
                                         <RoutineCheckbox checked={completed.includes(item.id)} color={color} />
-                                        <span className={`text-sm ${completed.includes(item.id) ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{item.text}</span>
+                                        <span className={`text-sm md:text-base ${completed.includes(item.id) ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{item.text}</span>
                                         {skipReasons[item.id] && !completed.includes(item.id) && (
                                             <span className="text-xs text-zinc-500 ml-2">{skipReasonOptions.find(r => r.id === skipReasons[item.id])?.label || skipReasons[item.id]}</span>
                                         )}
@@ -1040,7 +1041,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Gym</h2><p className="text-sm text-zinc-500 mt-0.5">Workouts, programs, PRs</p></div>
+                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Gym</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Workouts, programs, PRs</p></div>
                 <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
                     {['kg', 'lbs'].map(u => (
                         <button
@@ -1271,7 +1272,7 @@ function JournalView({ date, setDate, journal, saveJournal }) {
     const filtered = search ? all.filter(([_, e]) => e.text.toLowerCase().includes(search.toLowerCase())) : all;
     return (
         <div className="space-y-5">
-            <div><h2 className="text-xl font-medium">Journal</h2><p className="text-sm text-zinc-500">Free writing, mood, history</p></div>
+            <div><h2 className="text-xl md:text-3xl font-medium">Journal</h2><p className="text-sm md:text-base text-zinc-500">Free writing, mood, history</p></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
@@ -1318,7 +1319,7 @@ function SymptomsView({ date, symptoms, saveSymptoms, symptomLog, saveSL }) {
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Symptoms</h2><p className="text-sm text-zinc-500 mt-0.5">Track headaches, anxiety, pain — anything affecting you</p></div>
+                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Symptoms</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Track headaches, anxiety, pain — anything affecting you</p></div>
                 <SaveIndicator status={saveStatus} />
             </div>
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
@@ -1379,7 +1380,7 @@ function TrendsView({ healthLog, journal, behaviorLog, behaviors, baselines }) {
     return (
         <div className="space-y-5">
             <div className="flex items-center justify-between">
-                <div><h2 className="text-xl font-medium">Trends</h2><p className="text-sm text-zinc-500">Patterns over time</p></div>
+                <div><h2 className="text-xl md:text-3xl font-medium">Trends</h2><p className="text-sm md:text-base text-zinc-500">Patterns over time</p></div>
                 <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-md p-1">{[7, 30, 90].map(n => <button key={n} onClick={() => setRange(n)} className={`px-3 py-1 text-xs rounded ${range === n ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400'}`}>{n}d</button>)}</div>
             </div>
 
@@ -1524,7 +1525,7 @@ function Stat({ label, value, suffix, precision = 0, delta, deltaUnit, deltaInve
         >
             <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
             <div className="flex items-baseline gap-2 mt-1">
-                <div className="text-2xl font-medium tabular-nums">{display}{numeric !== null && suffix}</div>
+                <div className="text-2xl md:text-3xl font-medium tabular-nums">{display}{numeric !== null && suffix}</div>
                 {delta != null && Math.abs(delta) >= 0.1 && (
                     <div className={`text-xs ${color}`}>{arrow} {(Math.round(Math.abs(delta) * 10) / 10).toFixed(1)}{deltaUnit}</div>
                 )}
@@ -1549,7 +1550,7 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
     return (
         <div className="space-y-5">
             <div className="flex items-center justify-between">
-                <div><h2 className="text-xl font-medium">History</h2><p className="text-sm text-zinc-500">Time machine for any past day</p></div>
+                <div><h2 className="text-xl md:text-3xl font-medium">History</h2><p className="text-sm md:text-base text-zinc-500">Time machine for any past day</p></div>
                 <button onClick={exportData} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-md text-sm hover:bg-zinc-800"><Download size={14} /> Export JSON</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1663,7 +1664,7 @@ function SettingsView({ profile, saveProfile, healthLog, saveHealth, setView }) 
 
     return (
         <div className="space-y-5">
-            <div><h2 className="text-xl font-medium">Settings</h2><p className="text-sm text-zinc-500">Profile, customizations, imports</p></div>
+            <div><h2 className="text-xl md:text-3xl font-medium">Settings</h2><p className="text-sm md:text-base text-zinc-500">Profile, customizations, imports</p></div>
 
             <Section title="History">
                 <button onClick={() => setView('history')} className="bg-zinc-800 border border-zinc-700 px-4 py-2 rounded text-sm hover:bg-zinc-700 text-zinc-200 flex items-center gap-2">
@@ -1682,8 +1683,8 @@ function SettingsView({ profile, saveProfile, healthLog, saveHealth, setView }) 
             </Section>
 
             <Section title="Import from Whoop">
-                <p className="text-xs text-zinc-500"><strong className="text-zinc-300">How to export:</strong> Open the Whoop app → Profile → App Settings → Data Export → Export. You'll get an email with a CSV.</p>
-                <p className="text-xs text-zinc-500">Open the CSV in any text editor or Excel, copy all, paste below. I'll auto-detect columns for date, RHR, HRV, and sleep.</p>
+                <p className="text-xs md:text-sm text-zinc-500"><strong className="text-zinc-300">How to export:</strong> Open the Whoop app → Profile → App Settings → Data Export → Export. You'll get an email with a CSV.</p>
+                <p className="text-xs md:text-sm text-zinc-500">Open the CSV in any text editor or Excel, copy all, paste below. I'll auto-detect columns for date, RHR, HRV, and sleep.</p>
                 <textarea value={whoopText} onChange={(e) => setWhoopText(e.target.value)} rows={8} placeholder='Paste Whoop CSV here. Headers like: "Cycle start time","Heart rate variability (ms)","Resting heart rate (bpm)","Asleep duration (min)"...' className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-zinc-500 resize-none" />
                 <div className="flex items-center gap-3">
                     <button onClick={importWhoop} disabled={!whoopText.trim()} className="px-4 py-2 bg-teal-600/20 border border-teal-500/40 text-teal-300 rounded text-sm hover:bg-teal-600/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"><Upload size={14} /> Import</button>
@@ -1691,8 +1692,8 @@ function SettingsView({ profile, saveProfile, healthLog, saveHealth, setView }) 
                 </div>
             </Section>
             <Section title="Import from Oura">
-                <p className="text-xs text-zinc-500"><strong className="text-zinc-300">How to export:</strong> Sign in to <span className="text-zinc-300">cloud.ouraring.com</span> → Trends → pick a date range → Download CSV.</p>
-                <p className="text-xs text-zinc-500">Open the CSV in any text editor or Excel, copy all, paste below. I'll auto-detect columns for date, RHR, HRV, and sleep.</p>
+                <p className="text-xs md:text-sm text-zinc-500"><strong className="text-zinc-300">How to export:</strong> Sign in to <span className="text-zinc-300">cloud.ouraring.com</span> → Trends → pick a date range → Download CSV.</p>
+                <p className="text-xs md:text-sm text-zinc-500">Open the CSV in any text editor or Excel, copy all, paste below. I'll auto-detect columns for date, RHR, HRV, and sleep.</p>
                 <textarea value={ouraText} onChange={(e) => setOuraText(e.target.value)} rows={8} placeholder='Paste Oura CSV here. Headers like: "date","Total Sleep Duration","Average Resting Heart Rate","Average HRV"...' className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-zinc-500 resize-none" />
                 <div className="flex items-center gap-3">
                     <button onClick={importOura} disabled={!ouraText.trim()} className="px-4 py-2 bg-teal-600/20 border border-teal-500/40 text-teal-300 rounded text-sm hover:bg-teal-600/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"><Upload size={14} /> Import</button>
@@ -1933,14 +1934,14 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 md:space-y-8">
             <div>
-                <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Insights</h2>
-                <p className="text-sm text-zinc-500 mt-0.5">Patterns and summaries from your data</p>
+                <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Insights</h2>
+                <p className="text-sm md:text-base text-zinc-500 mt-0.5">Patterns and summaries from your data</p>
             </div>
             <div>
                 <div className="flex items-baseline justify-between mb-3">
-                    <h3 className="text-base font-medium flex items-center gap-2">🔍 Patterns</h3>
+                    <h3 className="text-base md:text-lg font-medium flex items-center gap-2">🔍 Patterns</h3>
                     <span className="text-xs text-zinc-500">behaviors → outcomes</span>
                 </div>
                 {behaviorPatterns.length > 0 ? (
@@ -1969,11 +1970,11 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     </div>
                 ) : (
                     <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-lg p-6 text-center">
-                        <div className="text-base font-medium text-zinc-200">Patterns will appear here as you log</div>
-                        <div className="text-sm text-zinc-500 mt-2 max-w-2xl mx-auto">
+                        <div className="text-base md:text-lg font-medium text-zinc-200">Patterns will appear here as you log</div>
+                        <div className="text-sm md:text-base text-zinc-500 mt-2 max-w-2xl mx-auto">
                             Each day on the Today page, tap the behavior pills (alcohol, caffeine, late meal, stress) to mark yes or no.
                         </div>
-                        <div className="text-xs text-zinc-500 mt-2 max-w-2xl mx-auto">
+                        <div className="text-xs md:text-sm text-zinc-500 mt-2 max-w-2xl mx-auto">
                             After ~2 weeks of tracking, we'll show you things like <span className="text-zinc-300">"Your HRV drops 12 points on alcohol days"</span> or <span className="text-zinc-300">"You sleep 1.2h less when you log late meals."</span>
                         </div>
                     </div>
@@ -1985,7 +1986,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             <div>
                 <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                        <h3 className="text-base font-medium">{range.title}</h3>
+                        <h3 className="text-base md:text-lg font-medium">{range.title}</h3>
                         <span className="text-xs text-zinc-500">{range.priorLabel}</span>
                     </div>
                     <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-md p-1">
@@ -2009,7 +2010,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Mood / Energy avg</div>
-                        <div className="text-2xl font-medium mt-1">
+                        <div className="text-2xl md:text-3xl font-medium mt-1">
                             {avg(currentMood) ? <>{fmt(avg(currentMood), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
                             {' · '}
                             {avg(currentEnergy) ? <>{fmt(avg(currentEnergy), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
@@ -2017,7 +2018,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     </div>
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Morning routines hit</div>
-                        <div className="text-2xl font-medium mt-1">{morningHits} / {rangeDays} days</div>
+                        <div className="text-2xl md:text-3xl font-medium mt-1">{morningHits} / {rangeDays} days</div>
                     </div>
                 </div>
                 {(bestDay || worstDay) && (
@@ -2064,7 +2065,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             </div>
 
             {trackedDays < 14 && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center text-sm text-zinc-500">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center text-sm md:text-base text-zinc-500">
                     More data = better insights. Keep logging!
                 </div>
             )}
