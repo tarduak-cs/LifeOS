@@ -270,15 +270,15 @@ export default function LifeOS() {
 // ============ SIDEBAR ============
 function Sidebar({ view, setView, open, setOpen }) {
     const items = [
-        { id: 'today', label: 'Today', icon: Home },
-        { id: 'health', label: 'Health', icon: Heart },
-        { id: 'routines', label: 'Routines', icon: Sun },
-        { id: 'gym', label: 'Gym', icon: Dumbbell },
-        { id: 'journal', label: 'Journal', icon: BookOpen },
-        { id: 'symptoms', label: 'Symptoms', icon: AlertCircle },
-        { id: 'trends', label: 'Trends', icon: TrendingUp },
-        { id: 'history', label: 'History', icon: Calendar },
-        { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'today', label: 'Today', icon: Home, color: 'text-teal-400' },
+        { id: 'health', label: 'Health', icon: Heart, color: 'text-rose-400' },
+        { id: 'routines', label: 'Routines', icon: Sun, color: 'text-amber-400' },
+        { id: 'gym', label: 'Gym', icon: Dumbbell, color: 'text-orange-400' },
+        { id: 'journal', label: 'Journal', icon: BookOpen, color: 'text-purple-400' },
+        { id: 'symptoms', label: 'Symptoms', icon: AlertCircle, color: 'text-red-400' },
+        { id: 'trends', label: 'Trends', icon: TrendingUp, color: 'text-cyan-400' },
+        { id: 'history', label: 'History', icon: Calendar, color: 'text-zinc-400' },
+        { id: 'settings', label: 'Settings', icon: Settings, color: 'text-zinc-400' },
     ];
     return (
         <>
@@ -295,7 +295,7 @@ function Sidebar({ view, setView, open, setOpen }) {
                         const active = view === item.id;
                         return (
                             <button key={item.id} onClick={() => setView(item.id)} className={`flex items-center gap-3 px-2.5 py-2 rounded-md text-sm ${active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}`} title={!open ? item.label : ''}>
-                                <Icon size={16} className="flex-shrink-0" />
+                                <Icon size={16} className={`flex-shrink-0 ${item.color}`} />
                                 {open && <span>{item.label}</span>}
                             </button>
                         );
@@ -308,7 +308,7 @@ function Sidebar({ view, setView, open, setOpen }) {
                     const active = view === item.id;
                     return (
                         <button key={item.id} onClick={() => setView(item.id)} className={`flex flex-col items-center gap-0.5 px-2 py-1 ${active ? 'text-zinc-100' : 'text-zinc-500'}`}>
-                            <Icon size={16} />
+                            <Icon size={16} className={item.color} />
                             <span className="text-[9px]">{item.label}</span>
                         </button>
                     );
@@ -466,10 +466,10 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Sleep" value={todayHealth.sleepHours ? `${todayHealth.sleepHours}h` : '—'} sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} />
-                <StatCard label="HRV" value={todayHealth.hrv || '—'} suffix={todayHealth.hrv ? 'ms' : ''} sub={baselines.hrv ? `avg ${baselines.hrv}` : null} />
-                <StatCard label="RHR" value={todayHealth.rhr || '—'} suffix={todayHealth.rhr ? 'bpm' : ''} sub={baselines.rhr ? `avg ${baselines.rhr}` : null} />
-                <StatCard label="Mood / Energy" value={`${todayHealth.mood || '—'} / ${todayHealth.energy || '—'}`} />
+                <StatCard accent="purple" label="Sleep" value={todayHealth.sleepHours ? `${todayHealth.sleepHours}h` : '—'} sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} />
+                <StatCard accent="cyan" label="HRV" value={todayHealth.hrv || '—'} suffix={todayHealth.hrv ? 'ms' : ''} sub={baselines.hrv ? `avg ${baselines.hrv}` : null} />
+                <StatCard accent="rose" label="RHR" value={todayHealth.rhr || '—'} suffix={todayHealth.rhr ? 'bpm' : ''} sub={baselines.rhr ? `avg ${baselines.rhr}` : null} />
+                <StatCard accent="amber" label="Mood / Energy" value={`${todayHealth.mood || '—'} / ${todayHealth.energy || '—'}`} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -537,8 +537,22 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
     );
 }
 
-function StatCard({ label, value, suffix, sub }) {
-    return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4"><div className="text-sm text-zinc-500">{label}</div><div className="text-3xl font-medium text-zinc-100 mt-1">{value}{suffix && <span className="text-base text-zinc-500 ml-1">{suffix}</span>}</div>{sub && <div className="text-xs text-zinc-600 mt-1">{sub}</div>}</div>;
+function StatCard({ label, value, suffix, sub, accent }) {
+    const tints = {
+        purple: 'bg-purple-500/5 border-purple-500/20',
+        cyan: 'bg-cyan-500/5 border-cyan-500/20',
+        rose: 'bg-rose-500/5 border-rose-500/20',
+        amber: 'bg-amber-500/5 border-amber-500/20',
+        zinc: 'bg-zinc-900 border-zinc-800',
+    };
+    const tint = tints[accent] || tints.zinc;
+    return (
+        <div className={`${tint} border rounded-lg p-4`}>
+            <div className="text-sm text-zinc-500">{label}</div>
+            <div className="text-3xl font-medium text-zinc-100 mt-1">{value}{suffix && <span className="text-base text-zinc-500 ml-1">{suffix}</span>}</div>
+            {sub && <div className="text-xs text-zinc-600 mt-1">{sub}</div>}
+        </div>
+    );
 }
 function Card({ title, subtitle, children, action }) {
     return <div onClick={action} className={`bg-zinc-900 border border-zinc-800 rounded-lg p-5 ${action ? 'cursor-pointer hover:border-zinc-700' : ''}`}><div className="flex items-baseline justify-between mb-3"><div><div className="text-base font-medium text-zinc-200">{title}</div>{subtitle && <div className="text-xs text-zinc-500 mt-0.5">{subtitle}</div>}</div></div>{children}</div>;
