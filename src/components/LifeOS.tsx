@@ -283,7 +283,6 @@ function Sidebar({ view, setView, open, setOpen }) {
         { id: 'gym', label: 'Gym', icon: Dumbbell, color: 'text-orange-400' },
         { id: 'journal', label: 'Journal', icon: BookOpen, color: 'text-purple-400' },
         { id: 'symptoms', label: 'Symptoms', icon: AlertCircle, color: 'text-red-400' },
-        { id: 'trends', label: 'Trends', icon: TrendingUp, color: 'text-cyan-400' },
         { id: 'insights', label: 'Insights', icon: Sparkles, color: 'text-emerald-400' },
         { id: 'settings', label: 'Settings', icon: Settings, color: 'text-zinc-400' },
     ];
@@ -333,7 +332,7 @@ function Sidebar({ view, setView, open, setOpen }) {
 
 // ============ DATE BAR ============
 function DateBar({ date, setDate, view, profile }) {
-    if (['trends', 'history', 'settings'].includes(view)) return null;
+    if (['insights', 'history', 'settings'].includes(view)) return null;
     const isToday = date === todayKey();
     const shift = (delta) => {
         const d = new Date(date + 'T00:00:00');
@@ -1778,7 +1777,7 @@ function FeedbackModal({ onClose }) {
 }
 
 // ============ INSIGHTS ============
-function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, routineCompletion, morningRoutine, nightRoutine }) {
+function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, routineCompletion, morningRoutine, nightRoutine, baselines }) {
     const today = todayKey();
 
     // ===== Range selector =====
@@ -1933,6 +1932,44 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     };
 
+    // ===== Trends section: compare metrics chart (uses selected range) =====
+    const [compareMetrics, setCompareMetrics] = useState(['sleep', 'readiness', 'hrv']);
+    const compareMetricsConfig = [
+        { id: 'sleep', label: 'Sleep (h)', color: '#a78bfa', axis: 'left' },
+        { id: 'readiness', label: 'Readiness', color: '#2dd4bf', axis: 'left' },
+        { id: 'mood', label: 'Mood', color: '#fbbf24', axis: 'left' },
+        { id: 'energy', label: 'Energy', color: '#f97316', axis: 'left' },
+        { id: 'hrv', label: 'HRV (ms)', color: '#22d3ee', axis: 'right' },
+        { id: 'rhr', label: 'RHR (bpm)', color: '#f472b6', axis: 'right' },
+    ];
+    const chartData = currentDates.map(d => ({
+        date: d.slice(5),
+        sleep: healthLog[d]?.sleepHours || null,
+        readiness: calcReadiness(healthLog[d], baselines),
+        mood: healthLog[d]?.mood || null,
+        energy: healthLog[d]?.energy || null,
+        hrv: healthLog[d]?.hrv || null,
+        rhr: healthLog[d]?.rhr || null,
+    }));
+
+    // ===== Trends section: year-in-pixels (always last 365 days) =====
+    const pixelDays = lastNDays(365).map(d => ({ date: d, mood: healthLog[d]?.mood || journal[d]?.mood }));
+
+    // ===== Trends section: behavior impact on readiness (always all data) =====
+    const behaviorImpact = behaviors.map(b => {
+        const yes = [], no = [];
+        Object.entries(behaviorLog).forEach(([d, log]) => {
+            const r = calcReadiness(healthLog[d], baselines);
+            if (r === null) return;
+            if (log[b.id] === true) yes.push(r);
+            else if (log[b.id] === false) no.push(r);
+        });
+        if (yes.length < 3 || no.length < 3) return { ...b, sample: yes.length + no.length, insufficient: true };
+        const aYes = yes.reduce((a, c) => a + c, 0) / yes.length;
+        const aNo = no.reduce((a, c) => a + c, 0) / no.length;
+        return { ...b, yesAvg: Math.round(aYes * 10) / 10, noAvg: Math.round(aNo * 10) / 10, diff: Math.round((aYes - aNo) * 10) / 10, sample: yes.length + no.length };
+    });
+
     return (
         <div className="space-y-6 md:space-y-8">
             <div>
@@ -2062,6 +2099,79 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* TRENDS SECTION */}
+            <div className="space-y-4">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                    <h3 className="text-base md:text-lg font-medium">Trends</h3>
+                    <span className="text-xs md:text-sm text-zinc-500">Visualize patterns over time</span>
+                </div>
+
+                <ChartCard title="Compare metrics">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {compareMetricsConfig.map(m => {
+                            const active = compareMetrics.includes(m.id);
+                            return (
+                                <button
+                                    key={m.id}
+                                    onClick={() => setCompareMetrics(active ? compareMetrics.filter(x => x !== m.id) : [...compareMetrics, m.id])}
+                                    className="px-3 py-1.5 rounded-md border text-xs transition-colors"
+                                    style={{
+                                        backgroundColor: active ? m.color + '20' : 'transparent',
+                                        borderColor: active ? m.color + '80' : '#3f3f46',
+                                        color: active ? m.color : '#a1a1aa',
+                                    }}
+                                >
+                                    {m.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {compareMetrics.length === 0 ? (
+                        <div className="text-sm text-zinc-500 text-center py-12">Toggle one or more metrics above to chart them.</div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={280}>
+                            <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                                <XAxis dataKey="date" stroke="#71717a" fontSize={11} />
+                                <YAxis yAxisId="left" stroke="#71717a" fontSize={11} />
+                                <YAxis yAxisId="right" orientation="right" stroke="#71717a" fontSize={11} />
+                                <Tooltip contentStyle={{ background: '#18181b', border: '1px solid #27272a', borderRadius: 6, fontSize: 12 }} />
+                                <Legend wrapperStyle={{ fontSize: 12 }} />
+                                {compareMetrics.includes('sleep') && <Line yAxisId="left" type="monotone" dataKey="sleep" stroke="#a78bfa" strokeWidth={2} dot={false} name="Sleep (h)" connectNulls />}
+                                {compareMetrics.includes('readiness') && <Line yAxisId="left" type="monotone" dataKey="readiness" stroke="#2dd4bf" strokeWidth={2} dot={false} name="Readiness" connectNulls />}
+                                {compareMetrics.includes('mood') && <Line yAxisId="left" type="monotone" dataKey="mood" stroke="#fbbf24" strokeWidth={2} dot={false} name="Mood" connectNulls />}
+                                {compareMetrics.includes('energy') && <Line yAxisId="left" type="monotone" dataKey="energy" stroke="#f97316" strokeWidth={2} dot={false} name="Energy" connectNulls />}
+                                {compareMetrics.includes('hrv') && <Line yAxisId="right" type="monotone" dataKey="hrv" stroke="#22d3ee" strokeWidth={2} dot={false} name="HRV (ms)" connectNulls />}
+                                {compareMetrics.includes('rhr') && <Line yAxisId="right" type="monotone" dataKey="rhr" stroke="#f472b6" strokeWidth={2} dot={false} name="RHR (bpm)" connectNulls />}
+                            </LineChart>
+                        </ResponsiveContainer>
+                    )}
+                </ChartCard>
+
+                <ChartCard title="Year in mood">
+                    <YearInPixels days={pixelDays} />
+                </ChartCard>
+
+                <ChartCard title="Behavior impact on readiness">
+                    <div className="text-xs text-zinc-500 mb-3">Avg readiness on yes vs no days. Need 3+ each side. Uses all available data.</div>
+                    {behaviorImpact.every(c => c.insufficient) ? <div className="text-sm text-zinc-500 text-center py-6">Log behaviors and health for ~2 weeks to see correlations.</div> : (
+                        <div className="space-y-2">
+                            {behaviorImpact.map(c => (
+                                <div key={c.id} className="flex items-center gap-3 text-sm">
+                                    <div className="flex-1 text-zinc-300">{c.text}</div>
+                                    {c.insufficient ? <div className="text-xs text-zinc-600">need more data ({c.sample}/6+)</div> : (
+                                        <>
+                                            <div className="text-xs text-zinc-500">yes: <span className="text-zinc-300">{c.yesAvg}</span> · no: <span className="text-zinc-300">{c.noAvg}</span></div>
+                                            <div className={`text-sm font-medium w-16 text-right ${c.diff > 2 ? 'text-teal-400' : c.diff < -2 ? 'text-red-400' : 'text-zinc-500'}`}>{c.diff > 0 ? '+' : ''}{c.diff}</div>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </ChartCard>
             </div>
 
             {trackedDays < 14 && (
