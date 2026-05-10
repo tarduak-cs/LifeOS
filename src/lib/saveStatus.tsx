@@ -24,11 +24,27 @@ export function useSaveStatus() {
 }
 
 export function SaveIndicator({ status }: { status: Status }) {
-  if (status === 'idle') {
-    return <div className="text-xs text-zinc-700 transition-opacity">&nbsp;</div>
-  }
-  if (status === 'saving') {
-    return <div className="text-xs text-zinc-500 transition-opacity">Saving…</div>
-  }
-  return <div className="text-xs text-teal-400 transition-opacity">Saved ✓</div>
+  // Keep the last non-idle text rendered while opacity fades out, so the
+  // transition is visible. transition-all also smooths the color shift
+  // when status flips from "saving" to "saved" without a remount.
+  const [shownText, setShownText] = useState(' ')
+  const [shownColor, setShownColor] = useState('text-zinc-500')
+
+  useEffect(() => {
+    if (status === 'saving') {
+      setShownText('Saving…')
+      setShownColor('text-zinc-500')
+    } else if (status === 'saved') {
+      setShownText('Saved ✓')
+      setShownColor('text-teal-400')
+    }
+  }, [status])
+
+  return (
+    <div
+      className={`text-xs transition-all duration-300 ease-out ${shownColor} ${status === 'idle' ? 'opacity-0' : 'opacity-100'}`}
+    >
+      {shownText}
+    </div>
+  )
 }

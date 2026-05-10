@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Home, Dumbbell, BookOpen, MessageSquare, Sun, Moon, TrendingUp, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Search, Download, Upload, Calendar, Heart, Award, Settings, PanelLeftClose, PanelLeftOpen, Sparkles, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { loadProfile, saveProfile as saveProfileToDB } from '../lib/profile';
@@ -497,10 +497,10 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard accent="purple" label="Sleep" value={todayHealth.sleepHours ? `${todayHealth.sleepHours}h` : '—'} sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} />
-                <StatCard accent="cyan" label="HRV" value={todayHealth.hrv || '—'} suffix={todayHealth.hrv ? 'ms' : ''} sub={baselines.hrv ? `avg ${baselines.hrv}` : null} />
-                <StatCard accent="rose" label="RHR" value={todayHealth.rhr || '—'} suffix={todayHealth.rhr ? 'bpm' : ''} sub={baselines.rhr ? `avg ${baselines.rhr}` : null} />
-                <StatCard accent="amber" label="Mood / Energy" value={
+                <StatCard accent="purple" label="Sleep" value={todayHealth.sleepHours} suffix="h" sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} index={0} />
+                <StatCard accent="cyan" label="HRV" value={todayHealth.hrv} suffix="ms" sub={baselines.hrv ? `avg ${baselines.hrv}` : null} index={1} />
+                <StatCard accent="rose" label="RHR" value={todayHealth.rhr} suffix="bpm" sub={baselines.rhr ? `avg ${baselines.rhr}` : null} index={2} />
+                <StatCard accent="amber" label="Mood / Energy" index={3} value={
                     <>
                         {todayHealth.mood ? <>{todayHealth.mood}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
                         {' · '}
@@ -574,7 +574,51 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
     );
 }
 
-function StatCard({ label, value, suffix, sub, accent }) {
+// Animate a numeric value counting up from 0 (or the previous non-numeric state)
+// over `duration` ms. Snaps when target transitions number → number.
+function useCountUp(target, duration = 600) {
+    const [display, setDisplay] = useState(0);
+    const prevRef = useRef<number | null>(null);
+    useEffect(() => {
+        const prev = prevRef.current;
+        const isNum = typeof target === 'number' && isFinite(target);
+        if (!isNum) {
+            prevRef.current = null;
+            setDisplay(0);
+            return;
+        }
+        if (typeof prev !== 'number') {
+            const start = performance.now();
+            let raf = 0;
+            const tick = (now: number) => {
+                const t = Math.min(1, (now - start) / duration);
+                const eased = 1 - Math.pow(1 - t, 3);
+                setDisplay(target * eased);
+                if (t < 1) raf = requestAnimationFrame(tick);
+                else setDisplay(target);
+            };
+            raf = requestAnimationFrame(tick);
+            prevRef.current = target;
+            return () => cancelAnimationFrame(raf);
+        }
+        setDisplay(target);
+        prevRef.current = target;
+    }, [target, duration]);
+    return display;
+}
+
+// Mount transition: starts off-state, flips to on-state after first paint so the
+// CSS transition (opacity + translate) plays. Used for the stat-card cascade.
+function useMountTransition() {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setMounted(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
+    return mounted;
+}
+
+function StatCard({ label, value, suffix, sub, accent, index = 0 }) {
     const tints = {
         purple: 'bg-purple-500/[0.04] border-purple-500/15',
         cyan: 'bg-cyan-500/[0.04] border-cyan-500/15',
@@ -584,15 +628,60 @@ function StatCard({ label, value, suffix, sub, accent }) {
         zinc: 'bg-zinc-900/60 border-zinc-800/80',
     };
     const tint = tints[accent] || tints.zinc;
+    const mounted = useMountTransition();
+    const numeric = typeof value === 'number' && isFinite(value) ? value : null;
+    const animated = useCountUp(numeric);
+    const display = numeric !== null
+        ? (Number.isInteger(numeric) ? Math.round(animated) : Math.round(animated * 10) / 10)
+        : (value ?? '—');
     return (
-        <div className={`${tint} border rounded-xl p-5 transition-colors`}>
+        <div
+            className={`${tint} border rounded-xl p-5 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            style={{ transitionDelay: `${index * 50}ms` }}
+        >
             <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">{label}</div>
             <div className="flex items-baseline gap-1.5 mt-2">
-                <div className="text-3xl font-semibold text-zinc-50 tabular-nums">{value}</div>
-                {suffix && <span className="text-sm text-zinc-500 font-normal">{suffix}</span>}
+                <div className="text-3xl font-semibold text-zinc-50 tabular-nums">{display}</div>
+                {suffix && numeric !== null && <span className="text-sm text-zinc-500 font-normal">{suffix}</span>}
             </div>
             {sub && <div className="text-xs text-zinc-500 mt-1.5">{sub}</div>}
         </div>
+    );
+}
+
+// Pulse the routine checkbox briefly when its checked state toggles.
+function RoutineCheckbox({ checked, color }) {
+    const cm = {
+        amber: { bg: 'bg-amber-500/20', br: 'border-amber-500/60', txt: 'text-amber-400' },
+        purple: { bg: 'bg-purple-500/20', br: 'border-purple-500/60', txt: 'text-purple-400' },
+    };
+    const c = cm[color] || cm.amber;
+    const [pulse, setPulse] = useState(false);
+    const firstRender = useRef(true);
+    useEffect(() => {
+        if (firstRender.current) { firstRender.current = false; return; }
+        setPulse(true);
+        const t = setTimeout(() => setPulse(false), 100);
+        return () => clearTimeout(t);
+    }, [checked]);
+    return (
+        <div className={`w-4 h-4 rounded border ${checked ? `${c.bg} ${c.br}` : 'border-zinc-600'} flex items-center justify-center flex-shrink-0 transition-transform duration-100 ${pulse ? 'scale-110' : 'scale-100'}`}>
+            {checked && <Check size={11} className={c.txt} />}
+        </div>
+    );
+}
+
+// "why skip?" button that fades in smoothly when it mounts (i.e., when the item
+// flips from checked back to unchecked).
+function SkipButton({ onClick, children }) {
+    const mounted = useMountTransition();
+    return (
+        <button
+            onClick={onClick}
+            className={`text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded px-2 py-0.5 border border-zinc-800 hover:border-zinc-700 transition-all duration-200 ${mounted ? 'opacity-100' : 'opacity-0'}`}
+        >
+            {children}
+        </button>
     );
 }
 function Card({ title, subtitle, children, action }) {
@@ -833,19 +922,16 @@ function RoutineEditor({ title, icon: Icon, color, items, saveItems, completed, 
                             <div className="w-full">
                                 <div className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-zinc-800/50 group">
                                     <button onClick={() => onToggle(item.id)} className="flex items-center gap-3 flex-1 text-left">
-                                        <div className={`w-4 h-4 rounded border ${completed.includes(item.id) ? `${c.bg} ${c.br}` : 'border-zinc-600'} flex items-center justify-center flex-shrink-0`}>{completed.includes(item.id) && <Check size={11} className={c.txt} />}</div>
+                                        <RoutineCheckbox checked={completed.includes(item.id)} color={color} />
                                         <span className={`text-sm ${completed.includes(item.id) ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{item.text}</span>
                                         {skipReasons[item.id] && !completed.includes(item.id) && (
                                             <span className="text-xs text-zinc-500 ml-2">{skipReasonOptions.find(r => r.id === skipReasons[item.id])?.label || skipReasons[item.id]}</span>
                                         )}
                                     </button>
                                     {!completed.includes(item.id) && setSkipMenuFor && (
-                                        <button
-                                            onClick={() => setSkipMenuFor(skipMenuFor?.itemId === item.id ? null : { itemId: item.id })}
-                                            className="text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded px-2 py-0.5 border border-zinc-800 hover:border-zinc-700 transition-colors"
-                                        >
+                                        <SkipButton onClick={() => setSkipMenuFor(skipMenuFor?.itemId === item.id ? null : { itemId: item.id })}>
                                             {skipReasons[item.id] ? 'change' : 'why skip?'}
-                                        </button>
+                                        </SkipButton>
                                     )}
                                 </div>
                                 {skipMenuFor?.itemId === item.id && !completed.includes(item.id) && (
@@ -1416,6 +1502,32 @@ function YearInPixels({ days }) {
 }
 
 function StatBox({ label, value }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3"><div className="text-xs text-zinc-500">{label}</div><div className="text-xl font-medium mt-1">{value}</div></div>; }
+
+function Stat({ label, value, suffix, precision = 0, delta, deltaUnit, deltaInverted, index = 0 }) {
+    const mounted = useMountTransition();
+    const numeric = typeof value === 'number' && isFinite(value) ? value : null;
+    const animated = useCountUp(numeric);
+    const display = numeric !== null
+        ? (precision === 0 ? Math.round(animated).toString() : animated.toFixed(precision))
+        : '—';
+    const arrow = delta == null ? '' : Math.abs(delta) < 0.1 ? '→' : delta > 0 ? '↑' : '↓';
+    const isGood = delta == null ? null : (deltaInverted ? delta < 0 : delta > 0);
+    const color = arrow === '→' ? 'text-zinc-500' : isGood ? 'text-teal-400' : 'text-rose-400';
+    return (
+        <div
+            className={`bg-zinc-900 border border-zinc-800 rounded-lg p-4 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            style={{ transitionDelay: `${index * 50}ms` }}
+        >
+            <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
+            <div className="flex items-baseline gap-2 mt-1">
+                <div className="text-2xl font-medium tabular-nums">{display}{numeric !== null && suffix}</div>
+                {delta != null && Math.abs(delta) >= 0.1 && (
+                    <div className={`text-xs ${color}`}>{arrow} {(Math.round(Math.abs(delta) * 10) / 10).toFixed(1)}{deltaUnit}</div>
+                )}
+            </div>
+        </div>
+    );
+}
 function ChartCard({ title, children }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4"><div className="text-sm font-medium mb-3">{title}</div>{children}</div>; }
 
 // ============ HISTORY ============
@@ -1805,23 +1917,6 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             findings: findings.sort((a, b) => b.magnitude - a.magnitude),
         };
     }).filter(Boolean).sort((a, b) => b.findings[0].magnitude - a.findings[0].magnitude);
-    const Stat = ({ label, value, delta, deltaUnit, deltaInverted }) => {
-        const arrow = delta == null ? '' : Math.abs(delta) < 0.1 ? '→' : delta > 0 ? '↑' : '↓';
-        const isGood = delta == null ? null : (deltaInverted ? delta < 0 : delta > 0);
-        const color = arrow === '→' ? 'text-zinc-500' : isGood ? 'text-teal-400' : 'text-rose-400';
-        return (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
-                <div className="flex items-baseline gap-2 mt-1">
-                    <div className="text-2xl font-medium">{value}</div>
-                    {delta != null && Math.abs(delta) >= 0.1 && (
-                        <div className={`text-xs ${color}`}>{arrow} {fmt(Math.abs(delta), 1)}{deltaUnit}</div>
-                    )}
-                </div>
-            </div>
-        );
-    };
-
     const formatDayName = (dateStr) => {
         const d = new Date(dateStr + 'T00:00:00');
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -1883,10 +1978,10 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     <span className="text-xs text-zinc-500">vs prior 7 days</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Stat label="Sleep avg" value={avg(thisWeekSleep) ? `${fmt(avg(thisWeekSleep))}h` : '—'} delta={sleepDelta} deltaUnit="h" />
-                    <Stat label="HRV avg" value={avg(thisWeekHRV) ? `${fmt(avg(thisWeekHRV), 0)}ms` : '—'} delta={hrvDelta} deltaUnit="ms" />
-                    <Stat label="RHR avg" value={avg(thisWeekRHR) ? `${fmt(avg(thisWeekRHR), 0)}bpm` : '—'} delta={rhrDelta} deltaUnit="bpm" deltaInverted />
-                    <Stat label="Workouts" value={`${workoutsThisWeek}`} delta={workoutsThisWeek - workoutsLastWeek} />
+                    <Stat index={0} label="Sleep avg" value={avg(thisWeekSleep)} suffix="h" precision={1} delta={sleepDelta} deltaUnit="h" />
+                    <Stat index={1} label="HRV avg" value={avg(thisWeekHRV)} suffix="ms" delta={hrvDelta} deltaUnit="ms" />
+                    <Stat index={2} label="RHR avg" value={avg(thisWeekRHR)} suffix="bpm" delta={rhrDelta} deltaUnit="bpm" deltaInverted />
+                    <Stat index={3} label="Workouts" value={workoutsThisWeek} delta={workoutsThisWeek - workoutsLastWeek} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
@@ -1935,10 +2030,10 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     <span className="text-xs text-zinc-500">{thisYearDates.length} days tracked</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Stat label="Avg sleep" value={avg(yearSleep) ? `${fmt(avg(yearSleep))}h` : '—'} />
-                    <Stat label="Avg HRV" value={avg(yearHRV) ? `${fmt(avg(yearHRV), 0)}ms` : '—'} />
-                    <Stat label="Avg RHR" value={avg(yearRHR) ? `${fmt(avg(yearRHR), 0)}bpm` : '—'} />
-                    <Stat label="Workouts" value={`${totalWorkouts}`} />
+                    <Stat index={0} label="Avg sleep" value={avg(yearSleep)} suffix="h" precision={1} />
+                    <Stat index={1} label="Avg HRV" value={avg(yearHRV)} suffix="ms" />
+                    <Stat index={2} label="Avg RHR" value={avg(yearRHR)} suffix="bpm" />
+                    <Stat index={3} label="Workouts" value={totalWorkouts} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     {bestMonthEntry && (
