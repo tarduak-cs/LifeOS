@@ -410,16 +410,16 @@ function DateBar({ date, setDate, view, profile }) {
     const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
     return (
         <div className="mb-6">
-            {view === 'today' && profile.name && <div className="mb-4"><div className="text-2xl font-medium">{greeting()}, {profile.name}.</div></div>}
+            {view === 'today' && profile.name && <div className="mb-4"><div className="text-2xl font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">{greeting()}, {profile.name}.</div></div>}
             <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-zinc-800">
                 <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                     <button onClick={() => shift(-1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400 flex-shrink-0"><ChevronLeft size={18} /></button>
                     <div className="min-w-0">
-                        <div className="text-base sm:text-lg font-semibold text-zinc-100 tracking-tight truncate">
+                        <div className="text-base sm:text-lg font-semibold text-zinc-100 tracking-tight truncate drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
                             <span className="sm:hidden">{formatDate(date)}</span>
                             <span className="hidden sm:inline">{formatDateLong(date)}</span>
                         </div>
-                        {!isToday ? <button onClick={() => setDate(todayKey())} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Jump to today</button> : <div className="text-xs text-zinc-500">Today</div>}
+                        {!isToday ? <button onClick={() => setDate(todayKey())} className="text-xs text-zinc-300 hover:text-zinc-100 transition-colors drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">Jump to today</button> : <div className="text-xs text-zinc-300 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">Today</div>}
                     </div>
                     <button onClick={() => shift(1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400 flex-shrink-0"><ChevronRight size={18} /></button>
                 </div>
@@ -538,15 +538,15 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
         <div className="space-y-6 md:space-y-8">
             {/* Quote of the day */}
             <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-6">
-                <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em] mb-3">Today's reflection</div>
+                <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em] mb-3">Today's reflection</div>
                 <blockquote className="text-zinc-100 text-base leading-relaxed italic">"{quote.text}"</blockquote>
-                <div className="text-xs text-zinc-500 mt-2">— {quote.author}{quote.context ? <span className="text-zinc-600"> · {quote.context}</span> : null}</div>
+                <div className="text-xs md:text-sm text-zinc-300 mt-2">— {quote.author}{quote.context ? <span className="text-zinc-400"> · {quote.context}</span> : null}</div>
             </div>
 
             {/* Daily intention */}
             <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-5">
                 <div className="flex items-baseline justify-between mb-3">
-                    <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">Today's intention</div>
+                    <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Today's intention</div>
                     <SaveIndicator status={intentionStatus} />
                 </div>
                 <input
@@ -562,12 +562,12 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
             <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-5">
                 <div className="flex items-center justify-between">
                     <div>
-                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Readiness</div>
+                        <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Readiness</div>
                         <div className="flex items-baseline gap-3 mt-1">
                             <div className={`text-5xl font-medium ${readinessColor} transition-opacity duration-[1200ms] ease-out ${readinessLoaded ? 'opacity-100' : 'opacity-0'}`}>{readiness ?? '—'}</div>
-                            <div className="text-sm text-zinc-400">{readinessLabel}</div>
+                            <div className="text-sm text-zinc-200">{readinessLabel}</div>
                         </div>
-                        <div className="text-xs text-zinc-500 mt-2">{readinessHint}</div>
+                        <div className="text-xs md:text-sm text-zinc-300 mt-2">{readinessHint}</div>
                     </div>
                     <Sparkles className="text-zinc-600" size={24} />
                 </div>
@@ -589,7 +589,7 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
                         <div className="flex items-baseline justify-between mb-3">
                             <div>
                                 <div className="text-sm font-medium">Today's behaviors</div>
-                                <div className="text-xs text-zinc-500 mt-0.5">Tap to toggle: ✓ yes · ✗ no · ○ skip</div>
+                                <div className="text-xs md:text-sm text-zinc-300 mt-0.5">Tap to toggle: ✓ yes · ✗ no · ○ skip</div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <SaveIndicator status={behaviorStatus} />
@@ -627,7 +627,7 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
             {showEvening && (
                 <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-5">
                     <div className="flex items-baseline justify-between mb-3">
-                        <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">Evening reflection</div>
+                        <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Evening reflection</div>
                         <SaveIndicator status={reflectionStatus} />
                     </div>
                     <textarea
@@ -708,12 +708,12 @@ function StatCard({ label, value, suffix, sub, accent, index = 0 }) {
             className={`${tint} border rounded-xl p-5 md:p-6 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
             style={{ transitionDelay: `${index * 50}ms` }}
         >
-            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">{label}</div>
+            <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">{label}</div>
             <div className="flex items-baseline gap-1.5 mt-2">
                 <div className="text-3xl md:text-4xl font-semibold text-zinc-50 tabular-nums">{display}</div>
-                {suffix && numeric !== null && <span className="text-sm text-zinc-500 font-normal">{suffix}</span>}
+                {suffix && numeric !== null && <span className="text-sm text-zinc-400 font-normal">{suffix}</span>}
             </div>
-            {sub && <div className="text-xs text-zinc-500 mt-1.5">{sub}</div>}
+            {sub && <div className="text-xs text-zinc-300 mt-1.5">{sub}</div>}
         </div>
     );
 }
@@ -759,7 +759,7 @@ function Card({ title, subtitle, children, action }) {
             <div className="flex items-baseline justify-between mb-4">
                 <div>
                     <div className="text-[15px] font-semibold text-zinc-100">{title}</div>
-                    {subtitle && <div className="text-[11px] text-zinc-500 mt-1">{subtitle}</div>}
+                    {subtitle && <div className="text-[12px] md:text-[13px] text-zinc-300 mt-1">{subtitle}</div>}
                 </div>
             </div>
             {children}
@@ -792,7 +792,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Morning log</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Daily health check-in</p></div>
+                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Morning log</h2><p className="text-sm md:text-base text-zinc-300 mt-0.5">Daily health check-in</p></div>
                 <div className="flex items-center gap-3">
                     <SaveIndicator status={saveStatus} />
                     <div className="flex items-center bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-0.5">
@@ -883,7 +883,7 @@ function RoutinesView({ date, morningRoutine, saveMR, nightRoutine, saveNR, rout
 
     return (
         <div className="space-y-5">
-            <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Routines</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Edit your morning & night checklists</p></div>
+            <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Routines</h2><p className="text-sm md:text-base text-zinc-300 mt-0.5">Edit your morning & night checklists</p></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <RoutineEditor
                     title="Morning"
@@ -1105,7 +1105,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Gym</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Workouts, programs, PRs</p></div>
+                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Gym</h2><p className="text-sm md:text-base text-zinc-300 mt-0.5">Workouts, programs, PRs</p></div>
                 <div className="flex items-center bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-0.5">
                     {['kg', 'lbs'].map(u => (
                         <button
@@ -1336,7 +1336,7 @@ function JournalView({ date, setDate, journal, saveJournal }) {
     const filtered = search ? all.filter(([_, e]) => e.text.toLowerCase().includes(search.toLowerCase())) : all;
     return (
         <div className="space-y-5">
-            <div><h2 className="text-xl md:text-3xl font-medium">Journal</h2><p className="text-sm md:text-base text-zinc-500">Free writing, mood, history</p></div>
+            <div><h2 className="text-xl md:text-3xl font-medium">Journal</h2><p className="text-sm md:text-base text-zinc-300">Free writing, mood, history</p></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
                     <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
@@ -1383,7 +1383,7 @@ function SymptomsView({ date, symptoms, saveSymptoms, symptomLog, saveSL }) {
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Symptoms</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Track headaches, anxiety, pain — anything affecting you</p></div>
+                <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Symptoms</h2><p className="text-sm md:text-base text-zinc-300 mt-0.5">Track headaches, anxiety, pain — anything affecting you</p></div>
                 <SaveIndicator status={saveStatus} />
             </div>
             <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
@@ -1444,7 +1444,7 @@ function TrendsView({ healthLog, journal, behaviorLog, behaviors, baselines }) {
     return (
         <div className="space-y-5">
             <div className="flex items-center justify-between">
-                <div><h2 className="text-xl md:text-3xl font-medium">Trends</h2><p className="text-sm md:text-base text-zinc-500">Patterns over time</p></div>
+                <div><h2 className="text-xl md:text-3xl font-medium">Trends</h2><p className="text-sm md:text-base text-zinc-300">Patterns over time</p></div>
                 <div className="flex gap-1 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-1">{[7, 30, 90].map(n => <button key={n} onClick={() => setRange(n)} className={`px-3 py-1 text-xs rounded ${range === n ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400'}`}>{n}d</button>)}</div>
             </div>
 
@@ -1587,7 +1587,7 @@ function Stat({ label, value, suffix, precision = 0, delta, deltaUnit, deltaInve
             className={`bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
             style={{ transitionDelay: `${index * 50}ms` }}
         >
-            <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
+            <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">{label}</div>
             <div className="flex items-baseline gap-2 mt-1">
                 <div className="text-2xl md:text-3xl font-medium tabular-nums">{display}{numeric !== null && suffix}</div>
                 {delta != null && Math.abs(delta) >= 0.1 && (
@@ -1614,7 +1614,7 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
     return (
         <div className="space-y-5">
             <div className="flex items-center justify-between">
-                <div><h2 className="text-xl md:text-3xl font-medium">History</h2><p className="text-sm md:text-base text-zinc-500">Time machine for any past day</p></div>
+                <div><h2 className="text-xl md:text-3xl font-medium">History</h2><p className="text-sm md:text-base text-zinc-300">Time machine for any past day</p></div>
                 <button onClick={exportData} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md text-sm hover:bg-zinc-800"><Download size={14} /> Export JSON</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1728,7 +1728,7 @@ function SettingsView({ profile, saveProfile, healthLog, saveHealth, setView }) 
 
     return (
         <div className="space-y-5">
-            <div><h2 className="text-xl md:text-3xl font-medium">Settings</h2><p className="text-sm md:text-base text-zinc-500">Profile, customizations, imports</p></div>
+            <div><h2 className="text-xl md:text-3xl font-medium">Settings</h2><p className="text-sm md:text-base text-zinc-300">Profile, customizations, imports</p></div>
 
             <Section title="History">
                 <button onClick={() => setView('history')} className="bg-zinc-800 border border-zinc-700 px-4 py-2 rounded text-sm hover:bg-zinc-700 text-zinc-200 flex items-center gap-2">
@@ -2039,12 +2039,12 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
         <div className="space-y-6 md:space-y-8">
             <div>
                 <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Insights</h2>
-                <p className="text-sm md:text-base text-zinc-500 mt-0.5">Patterns and summaries from your data</p>
+                <p className="text-sm md:text-base text-zinc-300 mt-0.5">Patterns and summaries from your data</p>
             </div>
             <div>
                 <div className="flex items-baseline justify-between mb-3">
                     <h3 className="text-base md:text-lg font-medium flex items-center gap-2">🔍 Patterns</h3>
-                    <span className="text-xs text-zinc-500">behaviors → outcomes</span>
+                    <span className="text-xs md:text-sm text-zinc-300">behaviors → outcomes</span>
                 </div>
                 {behaviorPatterns.length > 0 ? (
                     <div className="space-y-2">
@@ -2052,7 +2052,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                             <div key={i} className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                                 <div className="flex items-baseline justify-between mb-2">
                                     <div className="text-sm font-medium">{p.behavior}</div>
-                                    <div className="text-xs text-zinc-500">{p.yesCount} yes · {p.noCount} no days</div>
+                                    <div className="text-xs md:text-sm text-zinc-300">{p.yesCount} yes · {p.noCount} no days</div>
                                 </div>
                                 <div className="space-y-1">
                                     {p.findings.slice(0, 3).map((f, j) => (
@@ -2073,11 +2073,11 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 ) : (
                     <div className="bg-zinc-900/80 backdrop-blur-md border border-dashed border-zinc-800/50 rounded-lg p-6 text-center">
                         <div className="text-base md:text-lg font-medium text-zinc-200">Patterns will appear here as you log</div>
-                        <div className="text-sm md:text-base text-zinc-500 mt-2 max-w-2xl mx-auto">
+                        <div className="text-sm md:text-base text-zinc-300 mt-2 max-w-2xl mx-auto">
                             Each day on the Today page, tap the behavior pills (alcohol, caffeine, late meal, stress) to mark yes or no.
                         </div>
-                        <div className="text-xs md:text-sm text-zinc-500 mt-2 max-w-2xl mx-auto">
-                            After ~2 weeks of tracking, we'll show you things like <span className="text-zinc-300">"Your HRV drops 12 points on alcohol days"</span> or <span className="text-zinc-300">"You sleep 1.2h less when you log late meals."</span>
+                        <div className="text-xs md:text-sm text-zinc-400 mt-2 max-w-2xl mx-auto">
+                            After ~2 weeks of tracking, we'll show you things like <span className="text-zinc-200">"Your HRV drops 12 points on alcohol days"</span> or <span className="text-zinc-200">"You sleep 1.2h less when you log late meals."</span>
                         </div>
                     </div>
                 )}
@@ -2089,7 +2089,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
                     <div className="flex items-baseline gap-2 flex-wrap">
                         <h3 className="text-base md:text-lg font-medium">{range.title}</h3>
-                        <span className="text-xs text-zinc-500">{range.priorLabel}</span>
+                        <span className="text-xs md:text-sm text-zinc-300">{range.priorLabel}</span>
                     </div>
                     <div className="flex gap-1 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-1">
                         {RANGES.map(r => (
@@ -2111,7 +2111,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
-                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Mood / Energy avg</div>
+                        <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Mood / Energy avg</div>
                         <div className="text-2xl md:text-3xl font-medium mt-1">
                             {avg(currentMood) ? <>{fmt(avg(currentMood), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
                             {' · '}
@@ -2119,7 +2119,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                         </div>
                     </div>
                     <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
-                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Morning routines hit</div>
+                        <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Morning routines hit</div>
                         <div className="text-2xl md:text-3xl font-medium mt-1">{morningHits} / {rangeDays} days</div>
                     </div>
                 </div>
@@ -2127,9 +2127,9 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                         {bestDay && (
                             <div className="bg-teal-500/5 border border-teal-500/20 rounded-lg p-4">
-                                <div className="text-xs text-teal-400 uppercase tracking-wide">Best day</div>
+                                <div className="text-[12px] md:text-[13px] font-medium text-teal-400 uppercase tracking-[0.08em]">Best day</div>
                                 <div className="text-base font-medium mt-1">{formatDayName(bestDay.date)}</div>
-                                <div className="text-xs text-zinc-500 mt-1">
+                                <div className="text-xs md:text-sm text-zinc-300 mt-1">
                                     {healthLog[bestDay.date]?.sleepHours && `${healthLog[bestDay.date].sleepHours}h sleep`}
                                     {healthLog[bestDay.date]?.mood && ` · mood ${healthLog[bestDay.date].mood}/10`}
                                 </div>
@@ -2137,9 +2137,9 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                         )}
                         {worstDay && worstDay.date !== bestDay?.date && (
                             <div className="bg-rose-500/5 border border-rose-500/20 rounded-lg p-4">
-                                <div className="text-xs text-rose-400 uppercase tracking-wide">Toughest day</div>
+                                <div className="text-[12px] md:text-[13px] font-medium text-rose-400 uppercase tracking-[0.08em]">Toughest day</div>
                                 <div className="text-base font-medium mt-1">{formatDayName(worstDay.date)}</div>
-                                <div className="text-xs text-zinc-500 mt-1">
+                                <div className="text-xs md:text-sm text-zinc-300 mt-1">
                                     {healthLog[worstDay.date]?.sleepHours && `${healthLog[worstDay.date].sleepHours}h sleep`}
                                     {healthLog[worstDay.date]?.mood && ` · mood ${healthLog[worstDay.date].mood}/10`}
                                 </div>
@@ -2151,15 +2151,15 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                         {bestMonthEntry && (
                             <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
-                                <div className="text-xs text-zinc-500 uppercase tracking-wide">Best sleep month</div>
+                                <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Best sleep month</div>
                                 <div className="text-base font-medium mt-1">
                                     {new Date(bestMonthEntry.month + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                                 </div>
-                                <div className="text-xs text-zinc-500 mt-1">avg {fmt(bestMonthEntry.avg)}h</div>
+                                <div className="text-xs md:text-sm text-zinc-300 mt-1">avg {fmt(bestMonthEntry.avg)}h</div>
                             </div>
                         )}
                         <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
-                            <div className="text-xs text-zinc-500 uppercase tracking-wide">Longest morning routine streak</div>
+                            <div className="text-[12px] md:text-[13px] font-medium text-zinc-300 uppercase tracking-[0.08em]">Longest morning routine streak</div>
                             <div className="text-base font-medium mt-1">{longestStreak} days</div>
                         </div>
                     </div>
@@ -2170,7 +2170,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             <div className="space-y-4">
                 <div className="flex items-baseline gap-2 flex-wrap">
                     <h3 className="text-base md:text-lg font-medium">Trends</h3>
-                    <span className="text-xs md:text-sm text-zinc-500">Visualize patterns over time</span>
+                    <span className="text-xs md:text-sm text-zinc-300">Visualize patterns over time</span>
                 </div>
 
                 <ChartCard title="Compare metrics">
@@ -2220,7 +2220,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 </ChartCard>
 
                 <ChartCard title="Behavior impact on readiness">
-                    <div className="text-xs text-zinc-500 mb-3">Avg readiness on yes vs no days. Need 3+ each side. Uses all available data.</div>
+                    <div className="text-xs md:text-sm text-zinc-300 mb-3">Avg readiness on yes vs no days. Need 3+ each side. Uses all available data.</div>
                     {behaviorImpact.every(c => c.insufficient) ? <div className="text-sm text-zinc-500 text-center py-6">Log behaviors and health for ~2 weeks to see correlations.</div> : (
                         <div className="space-y-2">
                             {behaviorImpact.map(c => (
@@ -2240,7 +2240,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             </div>
 
             {trackedDays < 14 && (
-                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 text-center text-sm md:text-base text-zinc-500">
+                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 text-center text-sm md:text-base text-zinc-300">
                     More data = better insights. Keep logging!
                 </div>
             )}
