@@ -469,7 +469,7 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
                 <StatCard accent="purple" label="Sleep" value={todayHealth.sleepHours ? `${todayHealth.sleepHours}h` : '—'} sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} />
                 <StatCard accent="cyan" label="HRV" value={todayHealth.hrv || '—'} suffix={todayHealth.hrv ? 'ms' : ''} sub={baselines.hrv ? `avg ${baselines.hrv}` : null} />
                 <StatCard accent="rose" label="RHR" value={todayHealth.rhr || '—'} suffix={todayHealth.rhr ? 'bpm' : ''} sub={baselines.rhr ? `avg ${baselines.rhr}` : null} />
-                <StatCard accent="amber" label="Mood / Energy" value={`${todayHealth.mood || '—'} / ${todayHealth.energy || '—'}`} />
+                <StatCard accent="amber" label="Mood / Energy" value={`${todayHealth.mood ? todayHealth.mood + '/10' : '—'} · ${todayHealth.energy ? todayHealth.energy + '/10' : '—'}`} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
