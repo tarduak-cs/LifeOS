@@ -244,7 +244,8 @@ export default function LifeOS() {
     const props = { date, setDate, profile, saveProfile, healthLog, saveHealth, morningRoutine, saveMR, nightRoutine, saveNR, routineCompletion, saveRC, workouts, saveWorkouts, programs, savePrograms, journal, saveJournal, prs, savePRs, behaviors, saveBehaviors, behaviorLog, saveBL, symptoms, saveSymptoms, symptomLog, saveSL, baselines, setView };
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+        <div className="min-h-screen text-zinc-100 font-sans">
+            <CircadianBackground />
             <div className="flex min-h-screen">
                 <Sidebar view={view} setView={setView} open={sidebarOpen} setOpen={setSidebarOpen} />
                 <main className={`flex-1 min-w-0 transition-all duration-200 ${sidebarOpen ? 'md:ml-64' : 'md:ml-14'} pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8`}>
@@ -266,10 +267,74 @@ export default function LifeOS() {
             {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
             <button
                 onClick={() => setFeedbackOpen(true)}
-                className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-full px-4 py-2 text-xs flex items-center gap-2 shadow-lg"
+                className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-full px-4 py-2 text-xs flex items-center gap-2 shadow-lg"
             >
                 <MessageSquare size={14} /> Feedback
             </button>
+        </div>
+    );
+}
+
+// ============ CIRCADIAN BACKGROUND ============
+// Fixed full-viewport landscape photo behind the entire app. Five images mapped
+// to time-of-day; all five stay mounted so we get a true 2-second cross-fade
+// via opacity when the hour boundary crosses. Soft overlay sits on top of the
+// photo; per-card backdrop-blur handles text readability above that.
+const CIRCADIAN_IMAGES = {
+    dawn:      '/backgrounds/dawn.jpg',
+    morning:   '/backgrounds/morning.jpg',
+    afternoon: '/backgrounds/afternoon.jpg',
+    evening:   '/backgrounds/evening.jpg',
+    night:     '/backgrounds/night.jpg',
+} as const;
+type CircadianMode = keyof typeof CIRCADIAN_IMAGES;
+
+function modeForHour(h: number): CircadianMode {
+    if (h >= 5  && h < 8)  return 'dawn';
+    if (h >= 8  && h < 12) return 'morning';
+    if (h >= 12 && h < 17) return 'afternoon';
+    if (h >= 17 && h < 20) return 'evening';
+    return 'night';
+}
+
+function CircadianBackground() {
+    const [hour, setHour] = useState(() => new Date().getHours());
+
+    useEffect(() => {
+        const id = setInterval(() => setHour(new Date().getHours()), 5 * 60 * 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    // Preload every image so cross-fades aren't blocked on network.
+    useEffect(() => {
+        Object.values(CIRCADIAN_IMAGES).forEach(src => {
+            const img = new Image();
+            img.src = src;
+        });
+    }, []);
+
+    const currentMode = modeForHour(hour);
+
+    return (
+        <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden" aria-hidden="true">
+            {(Object.entries(CIRCADIAN_IMAGES) as [CircadianMode, string][]).map(([mode, src]) => (
+                <div
+                    key={mode}
+                    className="absolute inset-0 transition-opacity duration-[2000ms] ease-in-out"
+                    style={{
+                        backgroundImage: `url(${src})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        opacity: mode === currentMode ? 1 : 0,
+                    }}
+                />
+            ))}
+            <div
+                className="absolute inset-0"
+                style={{
+                    background: 'linear-gradient(180deg, rgba(9, 9, 11, 0.35) 0%, rgba(9, 9, 11, 0.45) 50%, rgba(9, 9, 11, 0.55) 100%)',
+                }}
+            />
         </div>
     );
 }
@@ -288,7 +353,7 @@ function Sidebar({ view, setView, open, setOpen }) {
     ];
     return (
         <>
-            <aside className={`hidden md:flex fixed left-0 top-0 bottom-0 ${open ? 'w-64' : 'w-14'} bg-zinc-900 border-r border-zinc-800 flex-col p-2 transition-all duration-200 z-40`}>
+            <aside className={`hidden md:flex fixed left-0 top-0 bottom-0 ${open ? 'w-64' : 'w-14'} bg-zinc-900/95 backdrop-blur-lg border-r border-zinc-800/60 flex-col p-2 transition-all duration-200 z-40`}>
                 <div className="flex items-center justify-between mb-4 px-2 py-2">
                     {open && <div><div className="text-base font-medium">LifeOS</div><div className="text-[10px] text-zinc-500">your life, tracked</div></div>}
                     <button onClick={() => setOpen(!open)} className="p-1.5 hover:bg-zinc-800 rounded text-zinc-400" title={open ? "Collapse" : "Expand"}>
@@ -308,7 +373,7 @@ function Sidebar({ view, setView, open, setOpen }) {
                     })}
                 </nav>
             </aside>
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-50 pb-[env(safe-area-inset-bottom)]">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-lg border-t border-zinc-800/60 z-50 pb-[env(safe-area-inset-bottom)]">
                 <div className="flex overflow-x-auto gap-1 px-2 py-1.5 snap-x [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
                     {items.map(item => {
                         const Icon = item.icon;
@@ -358,7 +423,7 @@ function DateBar({ date, setDate, view, profile }) {
                     </div>
                     <button onClick={() => shift(1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400 flex-shrink-0"><ChevronRight size={18} /></button>
                 </div>
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-600" />
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md px-3 py-1.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-600" />
             </div>
         </div>
     );
@@ -472,14 +537,14 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
     return (
         <div className="space-y-6 md:space-y-8">
             {/* Quote of the day */}
-            <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-6">
+            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-6">
                 <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em] mb-3">Today's reflection</div>
                 <blockquote className="text-zinc-100 text-base leading-relaxed italic">"{quote.text}"</blockquote>
                 <div className="text-xs text-zinc-500 mt-2">— {quote.author}{quote.context ? <span className="text-zinc-600"> · {quote.context}</span> : null}</div>
             </div>
 
             {/* Daily intention */}
-            <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5">
+            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-5">
                 <div className="flex items-baseline justify-between mb-3">
                     <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">Today's intention</div>
                     <SaveIndicator status={intentionStatus} />
@@ -494,7 +559,7 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
             </div>
 
             {/* Readiness */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-5">
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Readiness</div>
@@ -520,7 +585,7 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
                 </div>
 
                 {(behaviors.length > 0 || behaviorsEditing) && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 h-full">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 h-full">
                         <div className="flex items-baseline justify-between mb-3">
                             <div>
                                 <div className="text-sm font-medium">Today's behaviors</div>
@@ -560,7 +625,7 @@ function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompl
 
             {/* Evening reflection (only after 6pm local) */}
             {showEvening && (
-                <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5">
+                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-5">
                     <div className="flex items-baseline justify-between mb-3">
                         <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">Evening reflection</div>
                         <SaveIndicator status={reflectionStatus} />
@@ -624,12 +689,12 @@ function useMountTransition() {
 
 function StatCard({ label, value, suffix, sub, accent, index = 0 }) {
     const tints = {
-        purple: 'bg-purple-500/[0.04] border-purple-500/15',
-        cyan: 'bg-cyan-500/[0.04] border-cyan-500/15',
-        rose: 'bg-rose-500/[0.04] border-rose-500/15',
-        amber: 'bg-amber-500/[0.04] border-amber-500/15',
-        teal: 'bg-teal-500/[0.04] border-teal-500/15',
-        zinc: 'bg-zinc-900/60 border-zinc-800/80',
+        purple: 'bg-purple-500/[0.08] backdrop-blur-md border-purple-500/20 bg-zinc-900/75',
+        cyan:   'bg-cyan-500/[0.08] backdrop-blur-md border-cyan-500/20 bg-zinc-900/75',
+        rose:   'bg-rose-500/[0.08] backdrop-blur-md border-rose-500/20 bg-zinc-900/75',
+        amber:  'bg-amber-500/[0.08] backdrop-blur-md border-amber-500/20 bg-zinc-900/75',
+        teal:   'bg-teal-500/[0.08] backdrop-blur-md border-teal-500/20 bg-zinc-900/75',
+        zinc:   'bg-zinc-900/85 backdrop-blur-md border-zinc-800/60',
     };
     const tint = tints[accent] || tints.zinc;
     const mounted = useMountTransition();
@@ -690,7 +755,7 @@ function SkipButton({ onClick, children }) {
 }
 function Card({ title, subtitle, children, action }) {
     return (
-        <div onClick={action} className={`bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 md:p-6 transition-all ${action ? 'cursor-pointer hover:border-zinc-700 hover:bg-zinc-900' : ''}`}>
+        <div onClick={action} className={`bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-xl p-5 md:p-6 transition-all ${action ? 'cursor-pointer hover:border-zinc-700 hover:bg-zinc-900/90' : ''}`}>
             <div className="flex items-baseline justify-between mb-4">
                 <div>
                     <div className="text-[15px] font-semibold text-zinc-100">{title}</div>
@@ -730,7 +795,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
                 <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Morning log</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Daily health check-in</p></div>
                 <div className="flex items-center gap-3">
                     <SaveIndicator status={saveStatus} />
-                    <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
+                    <div className="flex items-center bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-0.5">
                         {['kg', 'lbs'].map(u => (
                             <button
                                 key={u}
@@ -744,7 +809,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
                 </div>
             </div>
             {readiness !== null && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex items-center justify-between">
+                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-3 flex items-center justify-between">
                     <div className="text-sm text-zinc-400">Today's readiness</div>
                     <div className={`text-2xl font-medium ${readiness >= 80 ? 'text-teal-400' : readiness >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{readiness}</div>
                 </div>
@@ -787,7 +852,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
     );
 }
 
-function Section({ title, children }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 md:p-6"><h3 className="text-sm md:text-lg font-medium mb-3">{title}</h3><div className="space-y-3">{children}</div></div>; }
+function Section({ title, children }) { return <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 md:p-6"><h3 className="text-sm md:text-lg font-medium mb-3">{title}</h3><div className="space-y-3">{children}</div></div>; }
 function Field({ label, children }) { return <div><label className="block text-xs text-zinc-500 mb-1.5">{label}</label>{children}</div>; }
 
 // ============ ROUTINES ============
@@ -902,7 +967,7 @@ function RoutineEditor({ title, icon: Icon, color, items, saveItems, completed, 
     };
 
     return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2"><Icon size={16} className={c.txt} /><h3 className="text-sm font-medium">{title}</h3><span className="text-xs text-zinc-500">({completed.length}/{list.length})</span></div>
                 <div className="flex items-center gap-3">
@@ -1041,7 +1106,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
         <div className="space-y-5">
             <div className="flex items-end justify-between">
                 <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Gym</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Workouts, programs, PRs</p></div>
-                <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
+                <div className="flex items-center bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-0.5">
                     {['kg', 'lbs'].map(u => (
                         <button
                             key={u}
@@ -1062,7 +1127,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
             {tab === 'today' && (
                 <div className="space-y-3">
                     {programs.length > 0 && workout.exercises.length === 0 && (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                             <div className="text-xs text-zinc-500 mb-2">Quick start from program:</div>
                             <div className="flex flex-wrap gap-2">{programs.map(p => <button key={p.id} onClick={() => loadProgram(p)} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm hover:bg-zinc-700">{p.name}</button>)}</div>
                         </div>
@@ -1071,7 +1136,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
                         const last = getLastSession(ex.name);
                         const oneRM = ex.sets.reduce((max, s) => { const r = calc1RM(s.weight, s.reps); return r > max ? r : max; }, 0);
                         return (
-                            <div key={ex.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div key={ex.id} className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                                 <div className="flex items-center gap-2 mb-2">
                                     <input
                                         value={exerciseDrafts[ex.id] ?? ex.name}
@@ -1130,7 +1195,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
                             </div>
                         );
                     })}
-                    <button onClick={() => addExercise()} className="w-full bg-zinc-900 border border-dashed border-zinc-700 rounded-lg py-3 text-sm text-zinc-400 hover:bg-zinc-800/50 flex items-center justify-center gap-2"><Plus size={16} /> Add exercise</button>
+                    <button onClick={() => addExercise()} className="w-full bg-zinc-900/80 backdrop-blur-md border border-dashed border-zinc-700/60 rounded-lg py-3 text-sm text-zinc-400 hover:bg-zinc-800/50 flex items-center justify-center gap-2"><Plus size={16} /> Add exercise</button>
                     <Section title="Workout notes">
                         <textarea
                             key={date}
@@ -1166,7 +1231,7 @@ function ProgramsTab({ programs, savePrograms }) {
     return (
         <div className="space-y-3">
             {draft.map(p => (
-                <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                <div key={p.id} className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                         <input
                             value={p.name}
@@ -1189,7 +1254,7 @@ function ProgramsTab({ programs, savePrograms }) {
                     <button onClick={() => { const next = draft.map(x => x.id === p.id ? { ...x, exercises: [...x.exercises, { name: '', targetSets: 3, targetReps: 10 }] } : x); setDraft(next); savePrograms(next); }} className="mt-2 text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1"><Plus size={12} /> Add exercise</button>
                 </div>
             ))}
-            <button onClick={() => { const next = [...draft, { id: `tmp-${Date.now()}`, name: 'New Program', exercises: [] }]; setDraft(next); savePrograms(next); }} className="w-full bg-zinc-900 border border-dashed border-zinc-700 rounded-lg py-3 text-sm text-zinc-400 hover:bg-zinc-800/50 flex items-center justify-center gap-2"><Plus size={16} /> New program</button>
+            <button onClick={() => { const next = [...draft, { id: `tmp-${Date.now()}`, name: 'New Program', exercises: [] }]; setDraft(next); savePrograms(next); }} className="w-full bg-zinc-900/80 backdrop-blur-md border border-dashed border-zinc-700/60 rounded-lg py-3 text-sm text-zinc-400 hover:bg-zinc-800/50 flex items-center justify-center gap-2"><Plus size={16} /> New program</button>
         </div>
     );
 }
@@ -1212,7 +1277,7 @@ function PRsTab({ prs, savePRs }) {
     };
 
     return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg overflow-hidden">
             <table className="w-full text-sm">
                 <thead className="bg-zinc-800/50"><tr className="text-left text-xs text-zinc-500"><th className="px-4 py-2.5 font-normal">Exercise</th><th className="px-4 py-2.5 font-normal">Weight</th><th className="px-4 py-2.5 font-normal">Reps</th><th className="px-4 py-2.5 font-normal">Est. 1RM</th><th className="px-4 py-2.5 font-normal">Date</th><th className="px-4 py-2.5 font-normal w-10"></th></tr></thead>
                 <tbody>
@@ -1274,7 +1339,7 @@ function JournalView({ date, setDate, journal, saveJournal }) {
             <div><h2 className="text-xl md:text-3xl font-medium">Journal</h2><p className="text-sm md:text-base text-zinc-500">Free writing, mood, history</p></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                             <div className="text-xs text-zinc-500">Mood</div>
                             <div className="flex gap-1">{['😞', '😕', '😐', '🙂', '😊'].map((emoji, i) => <button key={i} onClick={() => update('mood', i + 1)} className={`w-9 h-9 rounded-md text-lg ${entry.mood === i + 1 ? 'bg-zinc-700 scale-110' : 'hover:bg-zinc-800'}`}>{emoji}</button>)}</div>
@@ -1285,10 +1350,10 @@ function JournalView({ date, setDate, journal, saveJournal }) {
                     </div>
                 </div>
                 <div className="space-y-3">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-3">
                         <div className="relative"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search entries..." className="w-full bg-zinc-800 border border-zinc-700 rounded pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:border-zinc-500" /></div>
                     </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
                         <div className="text-xs text-zinc-500 px-3 py-2 border-b border-zinc-800">{filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}</div>
                         {filtered.length === 0 ? <div className="text-xs text-zinc-600 px-3 py-4 text-center">No entries yet</div> :
                             filtered.map(([d, e]) => (
@@ -1321,7 +1386,7 @@ function SymptomsView({ date, symptoms, saveSymptoms, symptomLog, saveSL }) {
                 <div><h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-zinc-50">Symptoms</h2><p className="text-sm md:text-base text-zinc-500 mt-0.5">Track headaches, anxiety, pain — anything affecting you</p></div>
                 <SaveIndicator status={saveStatus} />
             </div>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                 <div className="text-xs text-zinc-500 mb-3">Today's severity (0 = none, 5 = severe)</div>
                 {symptoms.length === 0 ? <div className="text-sm text-zinc-500 text-center py-6">No symptoms tracked yet. Add one below.</div> : (
                     <div className="space-y-3">
@@ -1380,7 +1445,7 @@ function TrendsView({ healthLog, journal, behaviorLog, behaviors, baselines }) {
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div><h2 className="text-xl md:text-3xl font-medium">Trends</h2><p className="text-sm md:text-base text-zinc-500">Patterns over time</p></div>
-                <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-md p-1">{[7, 30, 90].map(n => <button key={n} onClick={() => setRange(n)} className={`px-3 py-1 text-xs rounded ${range === n ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400'}`}>{n}d</button>)}</div>
+                <div className="flex gap-1 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-1">{[7, 30, 90].map(n => <button key={n} onClick={() => setRange(n)} className={`px-3 py-1 text-xs rounded ${range === n ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400'}`}>{n}d</button>)}</div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1505,7 +1570,7 @@ function YearInPixels({ days }) {
     );
 }
 
-function StatBox({ label, value }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3"><div className="text-xs text-zinc-500">{label}</div><div className="text-xl font-medium mt-1">{value}</div></div>; }
+function StatBox({ label, value }) { return <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-3"><div className="text-xs text-zinc-500">{label}</div><div className="text-xl font-medium mt-1">{value}</div></div>; }
 
 function Stat({ label, value, suffix, precision = 0, delta, deltaUnit, deltaInverted, index = 0 }) {
     const mounted = useMountTransition();
@@ -1519,7 +1584,7 @@ function Stat({ label, value, suffix, precision = 0, delta, deltaUnit, deltaInve
     const color = arrow === '→' ? 'text-zinc-500' : isGood ? 'text-teal-400' : 'text-rose-400';
     return (
         <div
-            className={`bg-zinc-900 border border-zinc-800 rounded-lg p-4 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            className={`bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 transition-all duration-500 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
             style={{ transitionDelay: `${index * 50}ms` }}
         >
             <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
@@ -1532,7 +1597,7 @@ function Stat({ label, value, suffix, precision = 0, delta, deltaUnit, deltaInve
         </div>
     );
 }
-function ChartCard({ title, children }) { return <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4"><div className="text-sm font-medium mb-3">{title}</div>{children}</div>; }
+function ChartCard({ title, children }) { return <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4"><div className="text-sm font-medium mb-3">{title}</div>{children}</div>; }
 
 // ============ HISTORY ============
 function HistoryView({ healthLog, routineCompletion, workouts, journal, morningRoutine, nightRoutine, profile, behaviors, behaviorLog, symptoms, symptomLog, prs, programs }) {
@@ -1550,17 +1615,17 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
         <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <div><h2 className="text-xl md:text-3xl font-medium">History</h2><p className="text-sm md:text-base text-zinc-500">Time machine for any past day</p></div>
-                <button onClick={exportData} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-md text-sm hover:bg-zinc-800"><Download size={14} /> Export JSON</button>
+                <button onClick={exportData} className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md text-sm hover:bg-zinc-800"><Download size={14} /> Export JSON</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden max-h-[600px] overflow-y-auto">
-                    <div className="sticky top-0 bg-zinc-900 z-10 border-b border-zinc-800">
+                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg overflow-hidden max-h-[600px] overflow-y-auto">
+                    <div className="sticky top-0 bg-zinc-900/90 backdrop-blur-md z-10 border-b border-zinc-800/50">
                         <div className="px-3 py-2">
                             <input
                                 type="date"
                                 value={selected}
                                 onChange={(e) => setSelected(e.target.value)}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-600"
+                                className="w-full bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md px-3 py-1.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-600"
                             />
                         </div>
                         <div className="text-xs text-zinc-500 px-3 py-2 border-t border-zinc-800">{sortedDates.length} {sortedDates.length === 1 ? 'day' : 'days'}</div>
@@ -1584,7 +1649,7 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
                 <div className="md:col-span-2 space-y-3">
                     <div className="text-base font-medium">{formatDateLong(selected)}</div>
                     {day.health && (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                             <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1.5"><Heart size={12} className="text-pink-400" /> Health</div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                                 {day.health.sleepHours && <div><span className="text-zinc-500">Sleep:</span> {day.health.sleepHours}h</div>}
@@ -1598,20 +1663,20 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
                         </div>
                     )}
                     {day.rc && (day.rc.morning?.length > 0 || day.rc.night?.length > 0) && (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                             <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1.5"><Sun size={12} className="text-amber-400" /> Routines</div>
                             <div className="text-sm space-y-1"><div>Morning: {day.rc.morning?.length || 0}/{morningRoutine.length}</div><div>Night: {day.rc.night?.length || 0}/{nightRoutine.length}</div></div>
                         </div>
                     )}
                     {day.workout?.exercises?.length > 0 && (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                             <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1.5"><Dumbbell size={12} className="text-teal-400" /> Workout</div>
                             <div className="space-y-2 text-sm">{day.workout.exercises.map((ex, i) => <div key={i}><div className="font-medium">{ex.name}</div><div className="text-xs text-zinc-500">{ex.sets.map(s => `${s.reps || '—'}×${s.weight || '—'}`).join(' · ')}</div></div>)}</div>
                             {day.workout.notes && <div className="mt-2 text-xs text-zinc-400 italic">{day.workout.notes}</div>}
                         </div>
                     )}
                     {day.journal?.text && (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                             <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1.5"><BookOpen size={12} className="text-purple-400" /> Journal</div>
                             <div className="text-sm text-zinc-300 whitespace-pre-wrap">{day.journal.text}</div>
                         </div>
@@ -1727,7 +1792,7 @@ function FeedbackModal({ onClose }) {
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-medium">Send feedback</h2>
                     <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300"><X size={18} /></button>
@@ -1984,7 +2049,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 {behaviorPatterns.length > 0 ? (
                     <div className="space-y-2">
                         {behaviorPatterns.map((p, i) => (
-                            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div key={i} className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                                 <div className="flex items-baseline justify-between mb-2">
                                     <div className="text-sm font-medium">{p.behavior}</div>
                                     <div className="text-xs text-zinc-500">{p.yesCount} yes · {p.noCount} no days</div>
@@ -2006,7 +2071,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                         ))}
                     </div>
                 ) : (
-                    <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-lg p-6 text-center">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-dashed border-zinc-800/50 rounded-lg p-6 text-center">
                         <div className="text-base md:text-lg font-medium text-zinc-200">Patterns will appear here as you log</div>
                         <div className="text-sm md:text-base text-zinc-500 mt-2 max-w-2xl mx-auto">
                             Each day on the Today page, tap the behavior pills (alcohol, caffeine, late meal, stress) to mark yes or no.
@@ -2026,7 +2091,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                         <h3 className="text-base md:text-lg font-medium">{range.title}</h3>
                         <span className="text-xs text-zinc-500">{range.priorLabel}</span>
                     </div>
-                    <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-md p-1">
+                    <div className="flex gap-1 bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-md p-1">
                         {RANGES.map(r => (
                             <button
                                 key={r.id}
@@ -2045,7 +2110,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                     <Stat index={3} label="Workouts" value={workoutsCurrent} delta={workoutsCurrent - workoutsPrior} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Mood / Energy avg</div>
                         <div className="text-2xl md:text-3xl font-medium mt-1">
                             {avg(currentMood) ? <>{fmt(avg(currentMood), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
@@ -2053,7 +2118,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                             {avg(currentEnergy) ? <>{fmt(avg(currentEnergy), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
                         </div>
                     </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                    <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Morning routines hit</div>
                         <div className="text-2xl md:text-3xl font-medium mt-1">{morningHits} / {rangeDays} days</div>
                     </div>
@@ -2085,7 +2150,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                 {showLongTermStats && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                         {bestMonthEntry && (
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                                 <div className="text-xs text-zinc-500 uppercase tracking-wide">Best sleep month</div>
                                 <div className="text-base font-medium mt-1">
                                     {new Date(bestMonthEntry.month + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -2093,7 +2158,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                                 <div className="text-xs text-zinc-500 mt-1">avg {fmt(bestMonthEntry.avg)}h</div>
                             </div>
                         )}
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4">
                             <div className="text-xs text-zinc-500 uppercase tracking-wide">Longest morning routine streak</div>
                             <div className="text-base font-medium mt-1">{longestStreak} days</div>
                         </div>
@@ -2175,7 +2240,7 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             </div>
 
             {trackedDays < 14 && (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center text-sm md:text-base text-zinc-500">
+                <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/50 rounded-lg p-4 text-center text-sm md:text-base text-zinc-500">
                     More data = better insights. Keep logging!
                 </div>
             )}
