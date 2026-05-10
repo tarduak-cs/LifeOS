@@ -19,7 +19,13 @@ const storage = {
 };
 
 // ============ HELPERS ============
-const todayKey = () => new Date().toISOString().split('T')[0];
+const todayKey = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
 const formatDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 const formatDateLong = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 const calcSleepHours = (s, w) => { if (!s || !w) return null; const [sh, sm] = s.split(':').map(Number); const [wh, wm] = w.split(':').map(Number); let m = (wh * 60 + wm) - (sh * 60 + sm); if (m < 0) m += 1440; return Math.round((m / 60) * 10) / 10; };
@@ -308,7 +314,14 @@ function Sidebar({ view, setView, open, setOpen }) {
 function DateBar({ date, setDate, view, profile }) {
     if (['trends', 'history', 'settings'].includes(view)) return null;
     const isToday = date === todayKey();
-    const shift = (delta) => { const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() + delta); setDate(d.toISOString().split('T')[0]); };
+    const shift = (delta) => {
+        const d = new Date(date + 'T00:00:00');
+        d.setDate(d.getDate() + delta);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        setDate(`${y}-${m}-${day}`);
+    };
     const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
     return (
         <div className="mb-6">
@@ -357,7 +370,10 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
     const yesterdayKey = (() => {
         const d = new Date(date + 'T00:00:00');
         d.setDate(d.getDate() - 1);
-        return d.toISOString().split('T')[0];
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
     })();
     const yesterdayHealth = healthLog[yesterdayKey] || {};
     const readiness = calcReadiness(yesterdayHealth, baselines);
@@ -370,7 +386,10 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
         let s = 0; const list = type === 'morning' ? morningRoutine : nightRoutine; if (!list.length) return 0;
         for (let i = 0; i < 365; i++) {
             const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() - i);
-            const k = d.toISOString().split('T')[0];
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const k = `${y}-${m}-${day}`;
             if (routineCompletion[k]?.[type]?.length === list.length) s++; else break;
         }
         return s;
