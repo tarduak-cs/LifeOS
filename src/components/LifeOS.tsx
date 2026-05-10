@@ -247,7 +247,7 @@ export default function LifeOS() {
         <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
             <div className="flex min-h-screen">
                 <Sidebar view={view} setView={setView} open={sidebarOpen} setOpen={setSidebarOpen} />
-                <main className={`flex-1 transition-all duration-200 ${sidebarOpen ? 'md:ml-56' : 'md:ml-14'} pb-24 md:pb-8`}>
+                <main className={`flex-1 min-w-0 transition-all duration-200 ${sidebarOpen ? 'md:ml-56' : 'md:ml-14'} pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8`}>
                     <div className="max-w-7xl mx-auto px-4 md:px-8 py-6">
                         <DateBar date={date} setDate={setDate} view={view} profile={profile} />
                         {view === 'today' && <TodayView {...props} />}
@@ -266,7 +266,7 @@ export default function LifeOS() {
             {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
             <button
                 onClick={() => setFeedbackOpen(true)}
-                className="fixed bottom-20 md:bottom-4 right-4 z-40 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-full px-4 py-2 text-xs flex items-center gap-2 shadow-lg"
+                className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-full px-4 py-2 text-xs flex items-center gap-2 shadow-lg"
             >
                 <MessageSquare size={14} /> Feedback
             </button>
@@ -310,17 +310,23 @@ function Sidebar({ view, setView, open, setOpen }) {
                     })}
                 </nav>
             </aside>
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 flex justify-around py-2 z-50 overflow-x-auto">
-                {items.slice(0, 7).map(item => {
-                    const Icon = item.icon;
-                    const active = view === item.id;
-                    return (
-                        <button key={item.id} onClick={() => setView(item.id)} className={`flex flex-col items-center gap-0.5 px-2 py-1 ${active ? 'text-zinc-100' : 'text-zinc-500'}`}>
-                            <Icon size={16} className={item.color} />
-                            <span className="text-[9px]">{item.label}</span>
-                        </button>
-                    );
-                })}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-50 pb-[env(safe-area-inset-bottom)]">
+                <div className="flex overflow-x-auto gap-1 px-2 py-1.5 snap-x [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+                    {items.map(item => {
+                        const Icon = item.icon;
+                        const active = view === item.id;
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => setView(item.id)}
+                                className={`flex-shrink-0 snap-start flex flex-col items-center gap-1 min-w-[64px] px-2 py-1.5 rounded-md transition-colors ${active ? 'bg-zinc-800/70' : 'active:bg-zinc-800/40'}`}
+                            >
+                                <Icon size={18} className={active ? item.color : 'text-zinc-500'} />
+                                <span className={`text-[10px] leading-none ${active ? 'text-zinc-100 font-medium' : 'text-zinc-500'}`}>{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
             </nav>
         </>
     );
@@ -342,14 +348,17 @@ function DateBar({ date, setDate, view, profile }) {
     return (
         <div className="mb-6">
             {view === 'today' && profile.name && <div className="mb-4"><div className="text-2xl font-medium">{greeting()}, {profile.name}.</div></div>}
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2">
-                    <button onClick={() => shift(-1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400"><ChevronLeft size={18} /></button>
-                    <div>
-                        <div className="text-lg font-semibold text-zinc-100 tracking-tight">{formatDateLong(date)}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-zinc-800">
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                    <button onClick={() => shift(-1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400 flex-shrink-0"><ChevronLeft size={18} /></button>
+                    <div className="min-w-0">
+                        <div className="text-base sm:text-lg font-semibold text-zinc-100 tracking-tight truncate">
+                            <span className="sm:hidden">{formatDate(date)}</span>
+                            <span className="hidden sm:inline">{formatDateLong(date)}</span>
+                        </div>
                         {!isToday ? <button onClick={() => setDate(todayKey())} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Jump to today</button> : <div className="text-xs text-zinc-500">Today</div>}
                     </div>
-                    <button onClick={() => shift(1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400"><ChevronRight size={18} /></button>
+                    <button onClick={() => shift(1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400 flex-shrink-0"><ChevronRight size={18} /></button>
                 </div>
                 <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-600" />
             </div>
