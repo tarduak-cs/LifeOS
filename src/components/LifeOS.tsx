@@ -251,6 +251,7 @@ export default function LifeOS() {
                         {view === 'journal' && <JournalView {...props} />}
                         {view === 'symptoms' && <SymptomsView {...props} />}
                         {view === 'trends' && <TrendsView {...props} />}
+                        {view === 'insights' && <InsightsView {...props} />}
                         {view === 'history' && <HistoryView {...props} />}
                         {view === 'settings' && <SettingsView {...props} />}
                     </div>
@@ -277,6 +278,7 @@ function Sidebar({ view, setView, open, setOpen }) {
         { id: 'journal', label: 'Journal', icon: BookOpen, color: 'text-purple-400' },
         { id: 'symptoms', label: 'Symptoms', icon: AlertCircle, color: 'text-red-400' },
         { id: 'trends', label: 'Trends', icon: TrendingUp, color: 'text-cyan-400' },
+        { id: 'insights', label: 'Insights', icon: Sparkles, color: 'text-emerald-400' },
         { id: 'history', label: 'History', icon: Calendar, color: 'text-zinc-400' },
         { id: 'settings', label: 'Settings', icon: Settings, color: 'text-zinc-400' },
     ];
@@ -338,8 +340,8 @@ function DateBar({ date, setDate, view, profile }) {
                 <div className="flex items-center gap-2">
                     <button onClick={() => shift(-1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400"><ChevronLeft size={18} /></button>
                     <div>
-                        <div className="text-base font-medium">{formatDateLong(date)}</div>
-                        {!isToday ? <button onClick={() => setDate(todayKey())} className="text-xs text-zinc-500 hover:text-zinc-300">Jump to today</button> : <div className="text-xs text-zinc-500">Today</div>}
+                        <div className="text-lg font-semibold text-zinc-100 tracking-tight">{formatDateLong(date)}</div>
+                        {!isToday ? <button onClick={() => setDate(todayKey())} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Jump to today</button> : <div className="text-xs text-zinc-500">Today</div>}
                     </div>
                     <button onClick={() => shift(1)} className="p-2 hover:bg-zinc-800 rounded-md text-zinc-400"><ChevronRight size={18} /></button>
                 </div>
@@ -417,9 +419,9 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
     };
 
     return (
-        <div className="space-y-5">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                <div className="text-xs text-zinc-500 uppercase tracking-wide mb-2">Today's reflection</div>
+        <div className="space-y-6">
+            <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-6">
+                <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em] mb-3">Today's reflection</div>
                 <blockquote className="text-zinc-100 text-base leading-relaxed italic">"{quote.text}"</blockquote>
                 <div className="text-xs text-zinc-500 mt-2">— {quote.author}{quote.context ? <span className="text-zinc-600"> · {quote.context}</span> : null}</div>
             </div>
@@ -469,7 +471,13 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
                 <StatCard accent="purple" label="Sleep" value={todayHealth.sleepHours ? `${todayHealth.sleepHours}h` : '—'} sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} />
                 <StatCard accent="cyan" label="HRV" value={todayHealth.hrv || '—'} suffix={todayHealth.hrv ? 'ms' : ''} sub={baselines.hrv ? `avg ${baselines.hrv}` : null} />
                 <StatCard accent="rose" label="RHR" value={todayHealth.rhr || '—'} suffix={todayHealth.rhr ? 'bpm' : ''} sub={baselines.rhr ? `avg ${baselines.rhr}` : null} />
-                <StatCard accent="amber" label="Mood / Energy" value={`${todayHealth.mood ? todayHealth.mood + '/10' : '—'} · ${todayHealth.energy ? todayHealth.energy + '/10' : '—'}`} />
+                <StatCard accent="amber" label="Mood / Energy" value={
+                    <>
+                        {todayHealth.mood ? <>{todayHealth.mood}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
+                        {' · '}
+                        {todayHealth.energy ? <>{todayHealth.energy}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
+                    </>
+                } />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -539,23 +547,37 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
 
 function StatCard({ label, value, suffix, sub, accent }) {
     const tints = {
-        purple: 'bg-purple-500/5 border-purple-500/20',
-        cyan: 'bg-cyan-500/5 border-cyan-500/20',
-        rose: 'bg-rose-500/5 border-rose-500/20',
-        amber: 'bg-amber-500/5 border-amber-500/20',
-        zinc: 'bg-zinc-900 border-zinc-800',
+        purple: 'bg-purple-500/[0.04] border-purple-500/15',
+        cyan: 'bg-cyan-500/[0.04] border-cyan-500/15',
+        rose: 'bg-rose-500/[0.04] border-rose-500/15',
+        amber: 'bg-amber-500/[0.04] border-amber-500/15',
+        teal: 'bg-teal-500/[0.04] border-teal-500/15',
+        zinc: 'bg-zinc-900/60 border-zinc-800/80',
     };
     const tint = tints[accent] || tints.zinc;
     return (
-        <div className={`${tint} border rounded-lg p-4`}>
-            <div className="text-sm text-zinc-500">{label}</div>
-            <div className="text-3xl font-medium text-zinc-100 mt-1">{value}{suffix && <span className="text-base text-zinc-500 ml-1">{suffix}</span>}</div>
-            {sub && <div className="text-xs text-zinc-600 mt-1">{sub}</div>}
+        <div className={`${tint} border rounded-xl p-5 transition-colors`}>
+            <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">{label}</div>
+            <div className="flex items-baseline gap-1.5 mt-2">
+                <div className="text-3xl font-semibold text-zinc-50 tabular-nums">{value}</div>
+                {suffix && <span className="text-sm text-zinc-500 font-normal">{suffix}</span>}
+            </div>
+            {sub && <div className="text-xs text-zinc-500 mt-1.5">{sub}</div>}
         </div>
     );
 }
 function Card({ title, subtitle, children, action }) {
-    return <div onClick={action} className={`bg-zinc-900 border border-zinc-800 rounded-lg p-5 ${action ? 'cursor-pointer hover:border-zinc-700' : ''}`}><div className="flex items-baseline justify-between mb-3"><div><div className="text-base font-medium text-zinc-200">{title}</div>{subtitle && <div className="text-xs text-zinc-500 mt-0.5">{subtitle}</div>}</div></div>{children}</div>;
+    return (
+        <div onClick={action} className={`bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5 transition-all ${action ? 'cursor-pointer hover:border-zinc-700 hover:bg-zinc-900' : ''}`}>
+            <div className="flex items-baseline justify-between mb-4">
+                <div>
+                    <div className="text-[15px] font-semibold text-zinc-100">{title}</div>
+                    {subtitle && <div className="text-[11px] text-zinc-500 mt-1">{subtitle}</div>}
+                </div>
+            </div>
+            {children}
+        </div>
+    );
 }
 function ProgressBar({ pct, color = 'teal' }) {
     const c = { amber: 'bg-amber-500', purple: 'bg-purple-500', teal: 'bg-teal-500' };
@@ -583,7 +605,7 @@ function HealthView({ date, healthLog, saveHealth, baselines, profile, saveProfi
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-xl font-medium">Morning log</h2><p className="text-sm text-zinc-500">Daily health check-in</p></div>
+                <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Morning log</h2><p className="text-sm text-zinc-500 mt-0.5">Daily health check-in</p></div>
                 <div className="flex items-center gap-3">
                     <SaveIndicator status={saveStatus} />
                     <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
@@ -794,7 +816,7 @@ function GymView({ date, workouts, saveWorkouts, programs, savePrograms, prs, sa
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-xl font-medium">Gym</h2><p className="text-sm text-zinc-500">Workouts, programs, PRs</p></div>
+                <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Gym</h2><p className="text-sm text-zinc-500 mt-0.5">Workouts, programs, PRs</p></div>
                 <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-md p-0.5">
                     {['kg', 'lbs'].map(u => (
                         <button
@@ -1072,7 +1094,7 @@ function SymptomsView({ date, symptoms, saveSymptoms, symptomLog, saveSL }) {
     return (
         <div className="space-y-5">
             <div className="flex items-end justify-between">
-                <div><h2 className="text-xl font-medium">Symptoms</h2><p className="text-sm text-zinc-500">Track headaches, anxiety, pain — anything affecting you</p></div>
+                <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Symptoms</h2><p className="text-sm text-zinc-500 mt-0.5">Track headaches, anxiety, pain — anything affecting you</p></div>
                 <SaveIndicator status={saveStatus} />
             </div>
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
@@ -1479,6 +1501,311 @@ function FeedbackModal({ onClose }) {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ============ INSIGHTS ============
+function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, routineCompletion, morningRoutine, nightRoutine }) {
+    const today = todayKey();
+
+    // ===== Helper: pick the most recent N days from a date object =====
+    const lastNDays = (n, endDate = today) => {
+        const dates = [];
+        for (let i = n - 1; i >= 0; i--) {
+            const d = new Date(endDate + 'T00:00:00');
+            d.setDate(d.getDate() - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            dates.push(`${y}-${m}-${day}`);
+        }
+        return dates;
+    };
+
+    const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const fmt = (n, digits = 1) => n === null ? '—' : Number(n.toFixed(digits));
+
+    // ===== Weekly stats (last 7 days vs prior 7 days) =====
+    const thisWeekDates = lastNDays(7);
+    const lastWeekDates = (() => {
+        const d = new Date(today + 'T00:00:00');
+        d.setDate(d.getDate() - 7);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return lastNDays(7, `${y}-${m}-${day}`);
+    })();
+
+    const collectMetric = (dates, metric) => {
+        return dates.map(d => healthLog[d]?.[metric]).filter(v => v != null && !isNaN(v));
+    };
+
+    const thisWeekSleep = collectMetric(thisWeekDates, 'sleepHours');
+    const lastWeekSleep = collectMetric(lastWeekDates, 'sleepHours');
+    const thisWeekHRV = collectMetric(thisWeekDates, 'hrv');
+    const lastWeekHRV = collectMetric(lastWeekDates, 'hrv');
+    const thisWeekRHR = collectMetric(thisWeekDates, 'rhr');
+    const lastWeekRHR = collectMetric(lastWeekDates, 'rhr');
+    const thisWeekMood = collectMetric(thisWeekDates, 'mood');
+    const thisWeekEnergy = collectMetric(thisWeekDates, 'energy');
+
+    const sleepDelta = (avg(thisWeekSleep) ?? 0) - (avg(lastWeekSleep) ?? 0);
+    const hrvDelta = (avg(thisWeekHRV) ?? 0) - (avg(lastWeekHRV) ?? 0);
+    const rhrDelta = (avg(thisWeekRHR) ?? 0) - (avg(lastWeekRHR) ?? 0);
+
+    const workoutsThisWeek = thisWeekDates.filter(d => workouts[d]?.exercises?.length > 0).length;
+    const workoutsLastWeek = lastWeekDates.filter(d => workouts[d]?.exercises?.length > 0).length;
+
+    const morningHits = thisWeekDates.filter(d =>
+        morningRoutine.length > 0 && (routineCompletion[d]?.morning?.length || 0) >= morningRoutine.length
+    ).length;
+
+    // ===== Best/worst day this week (by readiness proxy: sleep+mood+energy) =====
+    const dayScore = (d) => {
+        const log = healthLog[d] || {};
+        let sum = 0, n = 0;
+        if (log.sleepHours) { sum += Math.min(log.sleepHours / 8, 1) * 100; n++; }
+        if (log.mood) { sum += log.mood * 10; n++; }
+        if (log.energy) { sum += log.energy * 10; n++; }
+        if (log.hrv && log.rhr) { sum += 70; n++; }  // proxy
+        return n > 0 ? sum / n : null;
+    };
+    const dayScores = thisWeekDates.map(d => ({ date: d, score: dayScore(d) })).filter(x => x.score !== null);
+    const bestDay = dayScores.reduce((b, x) => !b || x.score > b.score ? x : b, null);
+    const worstDay = dayScores.reduce((w, x) => !w || x.score < w.score ? x : w, null);
+
+    // ===== Yearly stats =====
+    const allLoggedDates = Object.keys(healthLog).sort();
+    const thisYearDates = allLoggedDates.filter(d => d.startsWith(today.slice(0, 4)));
+    const yearSleep = thisYearDates.map(d => healthLog[d]?.sleepHours).filter(v => v != null);
+    const yearHRV = thisYearDates.map(d => healthLog[d]?.hrv).filter(v => v != null);
+    const yearRHR = thisYearDates.map(d => healthLog[d]?.rhr).filter(v => v != null);
+    const totalWorkouts = Object.keys(workouts).filter(d => d.startsWith(today.slice(0, 4)) && workouts[d]?.exercises?.length > 0).length;
+
+    // ===== Best month by avg sleep =====
+    const monthlyAvgs = {};
+    thisYearDates.forEach(d => {
+        const m = d.slice(0, 7);
+        if (!monthlyAvgs[m]) monthlyAvgs[m] = [];
+        if (healthLog[d]?.sleepHours) monthlyAvgs[m].push(healthLog[d].sleepHours);
+    });
+    const bestMonthEntry = Object.entries(monthlyAvgs)
+        .map(([m, arr]) => ({ month: m, avg: avg(arr), count: arr.length }))
+        .filter(x => x.count >= 5 && x.avg !== null)
+        .sort((a, b) => b.avg - a.avg)[0];
+
+    // ===== Longest morning routine streak this year =====
+    let longestStreak = 0, currentStreak = 0;
+    const sortedDates = thisYearDates.sort();
+    for (const d of sortedDates) {
+        const completed = (routineCompletion[d]?.morning?.length || 0) >= morningRoutine.length && morningRoutine.length > 0;
+        if (completed) {
+            currentStreak++;
+            longestStreak = Math.max(longestStreak, currentStreak);
+        } else {
+            currentStreak = 0;
+        }
+    }
+    // ===== Behavior correlations =====
+    const behaviorPatterns = behaviors.map(b => {
+        const yesDays = [];
+        const noDays = [];
+        for (const date in behaviorLog) {
+            const val = behaviorLog[date]?.[b.id];
+            if (val === true) yesDays.push(date);
+            else if (val === false) noDays.push(date);
+        }
+
+        if (yesDays.length < 3 || noDays.length < 3) return null;
+
+        const compareMetric = (metric, label, unit, lowerIsBetter = false) => {
+            const yesValues = yesDays.map(d => healthLog[d]?.[metric]).filter(v => v != null);
+            const noValues = noDays.map(d => healthLog[d]?.[metric]).filter(v => v != null);
+            if (yesValues.length < 3 || noValues.length < 3) return null;
+            const yesAvg = yesValues.reduce((a, c) => a + c, 0) / yesValues.length;
+            const noAvg = noValues.reduce((a, c) => a + c, 0) / noValues.length;
+            const diff = yesAvg - noAvg;
+            const absPctChange = Math.abs(diff / noAvg) * 100;
+            if (absPctChange < 5) return null;
+            const isBad = lowerIsBetter ? diff > 0 : diff < 0;
+            return { metric: label, yesAvg, noAvg, diff, unit, isBad, magnitude: Math.abs(diff / noAvg) };
+        };
+
+        const findings = [
+            compareMetric('hrv', 'HRV', 'ms'),
+            compareMetric('sleepHours', 'Sleep', 'h'),
+            compareMetric('rhr', 'RHR', 'bpm', true),
+            compareMetric('mood', 'Mood', '/10'),
+            compareMetric('energy', 'Energy', '/10'),
+        ].filter(Boolean);
+
+        if (findings.length === 0) return null;
+
+        return {
+            behavior: b.text,
+            yesCount: yesDays.length,
+            noCount: noDays.length,
+            findings: findings.sort((a, b) => b.magnitude - a.magnitude),
+        };
+    }).filter(Boolean).sort((a, b) => b.findings[0].magnitude - a.findings[0].magnitude);
+    const Stat = ({ label, value, delta, deltaUnit, deltaInverted }) => {
+        const arrow = delta == null ? '' : Math.abs(delta) < 0.1 ? '→' : delta > 0 ? '↑' : '↓';
+        const isGood = delta == null ? null : (deltaInverted ? delta < 0 : delta > 0);
+        const color = arrow === '→' ? 'text-zinc-500' : isGood ? 'text-teal-400' : 'text-rose-400';
+        return (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                <div className="text-xs text-zinc-500 uppercase tracking-wide">{label}</div>
+                <div className="flex items-baseline gap-2 mt-1">
+                    <div className="text-2xl font-medium">{value}</div>
+                    {delta != null && Math.abs(delta) >= 0.1 && (
+                        <div className={`text-xs ${color}`}>{arrow} {fmt(Math.abs(delta), 1)}{deltaUnit}</div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const formatDayName = (dateStr) => {
+        const d = new Date(dateStr + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    };
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Insights</h2>
+                <p className="text-sm text-zinc-500 mt-0.5">Patterns and summaries from your data</p>
+            </div>
+            <div>
+                <div className="flex items-baseline justify-between mb-3">
+                    <h3 className="text-base font-medium flex items-center gap-2">🔍 Patterns</h3>
+                    <span className="text-xs text-zinc-500">behaviors → outcomes</span>
+                </div>
+                {behaviorPatterns.length > 0 ? (
+                    <div className="space-y-2">
+                        {behaviorPatterns.map((p, i) => (
+                            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                                <div className="flex items-baseline justify-between mb-2">
+                                    <div className="text-sm font-medium">{p.behavior}</div>
+                                    <div className="text-xs text-zinc-500">{p.yesCount} yes · {p.noCount} no days</div>
+                                </div>
+                                <div className="space-y-1">
+                                    {p.findings.slice(0, 3).map((f, j) => (
+                                        <div key={j} className="flex items-center gap-2 text-xs">
+                                            <div className="w-16 text-zinc-500">{f.metric}</div>
+                                            <div className={f.isBad ? 'text-rose-400' : 'text-teal-400'}>
+                                                {fmt(f.yesAvg, 1)}{f.unit} <span className="text-zinc-500">vs</span> {fmt(f.noAvg, 1)}{f.unit}
+                                            </div>
+                                            <div className={`text-[10px] ${f.isBad ? 'text-rose-400/70' : 'text-teal-400/70'}`}>
+                                                ({f.diff > 0 ? '+' : ''}{fmt(f.diff, 1)}{f.unit})
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="bg-zinc-900 border border-dashed border-zinc-800 rounded-lg p-6 text-center">
+                        <div className="text-base font-medium text-zinc-200">Patterns will appear here as you log</div>
+                        <div className="text-sm text-zinc-500 mt-2 max-w-2xl mx-auto">
+                            Each day on the Today page, tap the behavior pills (alcohol, caffeine, late meal, stress) to mark yes or no.
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-2 max-w-2xl mx-auto">
+                            After ~2 weeks of tracking, we'll show you things like <span className="text-zinc-300">"Your HRV drops 12 points on alcohol days"</span> or <span className="text-zinc-300">"You sleep 1.2h less when you log late meals."</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+
+            {/* THIS WEEK */}
+            <div>
+                <div className="flex items-baseline justify-between mb-3">
+                    <h3 className="text-base font-medium">This week</h3>
+                    <span className="text-xs text-zinc-500">vs prior 7 days</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Stat label="Sleep avg" value={avg(thisWeekSleep) ? `${fmt(avg(thisWeekSleep))}h` : '—'} delta={sleepDelta} deltaUnit="h" />
+                    <Stat label="HRV avg" value={avg(thisWeekHRV) ? `${fmt(avg(thisWeekHRV), 0)}ms` : '—'} delta={hrvDelta} deltaUnit="ms" />
+                    <Stat label="RHR avg" value={avg(thisWeekRHR) ? `${fmt(avg(thisWeekRHR), 0)}bpm` : '—'} delta={rhrDelta} deltaUnit="bpm" deltaInverted />
+                    <Stat label="Workouts" value={`${workoutsThisWeek}`} delta={workoutsThisWeek - workoutsLastWeek} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Mood / Energy avg</div>
+                        <div className="text-2xl font-medium mt-1">
+                            {avg(thisWeekMood) ? <>{fmt(avg(thisWeekMood), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
+                            {' · '}
+                            {avg(thisWeekEnergy) ? <>{fmt(avg(thisWeekEnergy), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
+                        </div>
+                    </div>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Morning routines hit</div>
+                        <div className="text-2xl font-medium mt-1">{morningHits} / 7 days</div>
+                    </div>
+                </div>
+                {(bestDay || worstDay) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        {bestDay && (
+                            <div className="bg-teal-500/5 border border-teal-500/20 rounded-lg p-4">
+                                <div className="text-xs text-teal-400 uppercase tracking-wide">Best day</div>
+                                <div className="text-base font-medium mt-1">{formatDayName(bestDay.date)}</div>
+                                <div className="text-xs text-zinc-500 mt-1">
+                                    {healthLog[bestDay.date]?.sleepHours && `${healthLog[bestDay.date].sleepHours}h sleep`}
+                                    {healthLog[bestDay.date]?.mood && ` · mood ${healthLog[bestDay.date].mood}/10`}
+                                </div>
+                            </div>
+                        )}
+                        {worstDay && worstDay.date !== bestDay?.date && (
+                            <div className="bg-rose-500/5 border border-rose-500/20 rounded-lg p-4">
+                                <div className="text-xs text-rose-400 uppercase tracking-wide">Toughest day</div>
+                                <div className="text-base font-medium mt-1">{formatDayName(worstDay.date)}</div>
+                                <div className="text-xs text-zinc-500 mt-1">
+                                    {healthLog[worstDay.date]?.sleepHours && `${healthLog[worstDay.date].sleepHours}h sleep`}
+                                    {healthLog[worstDay.date]?.mood && ` · mood ${healthLog[worstDay.date].mood}/10`}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* THIS YEAR */}
+            <div>
+                <div className="flex items-baseline justify-between mb-3">
+                    <h3 className="text-base font-medium">This year ({today.slice(0, 4)})</h3>
+                    <span className="text-xs text-zinc-500">{thisYearDates.length} days tracked</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Stat label="Avg sleep" value={avg(yearSleep) ? `${fmt(avg(yearSleep))}h` : '—'} />
+                    <Stat label="Avg HRV" value={avg(yearHRV) ? `${fmt(avg(yearHRV), 0)}ms` : '—'} />
+                    <Stat label="Avg RHR" value={avg(yearRHR) ? `${fmt(avg(yearRHR), 0)}bpm` : '—'} />
+                    <Stat label="Workouts" value={`${totalWorkouts}`} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    {bestMonthEntry && (
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div className="text-xs text-zinc-500 uppercase tracking-wide">Best sleep month</div>
+                            <div className="text-base font-medium mt-1">
+                                {new Date(bestMonthEntry.month + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </div>
+                            <div className="text-xs text-zinc-500 mt-1">avg {fmt(bestMonthEntry.avg)}h</div>
+                        </div>
+                    )}
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Longest morning routine streak</div>
+                        <div className="text-base font-medium mt-1">{longestStreak} days</div>
+                    </div>
+                </div>
+            </div>
+
+            {thisYearDates.length < 14 && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center text-sm text-zinc-500">
+                    More data = better insights. Keep logging!
+                </div>
+            )}
         </div>
     );
 }
