@@ -285,7 +285,6 @@ function Sidebar({ view, setView, open, setOpen }) {
         { id: 'symptoms', label: 'Symptoms', icon: AlertCircle, color: 'text-red-400' },
         { id: 'trends', label: 'Trends', icon: TrendingUp, color: 'text-cyan-400' },
         { id: 'insights', label: 'Insights', icon: Sparkles, color: 'text-emerald-400' },
-        { id: 'history', label: 'History', icon: Calendar, color: 'text-zinc-400' },
         { id: 'settings', label: 'Settings', icon: Settings, color: 'text-zinc-400' },
     ];
     return (
@@ -367,31 +366,12 @@ function DateBar({ date, setDate, view, profile }) {
 }
 
 // ============ TODAY ============
-function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, nightRoutine, routineCompletion, workouts, journal, behaviors, behaviorLog, saveBL, baselines, setView }) {
-
-    const todayHealth = healthLog[date] || {};
-    // Find the most recent weight entry across all logs
-    const weightHistory = Object.entries(healthLog)
-        .filter(([_, log]) => log.weight)
-        .sort((a, b) => b[0].localeCompare(a[0]));
-    const lastWeightEntry = weightHistory[0]; // [date, log] or undefined
-    const daysSinceWeight = lastWeightEntry
-        ? Math.floor((new Date(date + 'T00:00:00').getTime() - new Date(lastWeightEntry[0] + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
-        : null;
-    const needsWeighIn = !todayHealth.weight && (daysSinceWeight === null || daysSinceWeight >= 7);
-
-    const [weightDraft, setWeightDraft] = useState('');
-    const logWeight = () => {
-        const w = Number(weightDraft);
-        if (!w) return;
-        saveHealth({ ...healthLog, [date]: { ...todayHealth, weight: w } });
-        setWeightDraft('');
-    };
-
+function TodayView({ date, healthLog, morningRoutine, nightRoutine, routineCompletion, journal, saveJournal, behaviors, saveBehaviors, behaviorLog, saveBL, baselines, setView }) {
     const todayRC = routineCompletion[date] || { morning: [], night: [] };
-    const todayWorkout = workouts[date];
-    const todayJournal = journal[date] || {};
-    // Readiness reflects yesterday's recovery — calculated from yesterday's metrics
+    const todayBL = behaviorLog[date] || {};
+    const quote = getQuoteOfTheDay(new Date(date + 'T00:00:00'));
+
+    // Readiness reflects yesterday's recovery
     const yesterdayKey = (() => {
         const d = new Date(date + 'T00:00:00');
         d.setDate(d.getDate() - 1);
@@ -402,23 +382,20 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
     })();
     const yesterdayHealth = healthLog[yesterdayKey] || {};
     const readiness = calcReadiness(yesterdayHealth, baselines);
-    const todayBL = behaviorLog[date] || {};
-    const quote = getQuoteOfTheDay(new Date(date + 'T00:00:00'));
+    const readinessLabel = readiness === null ? '—' : readiness >= 85 ? 'Primed' : readiness >= 70 ? 'Good' : readiness >= 50 ? 'Moderate' : 'Recover';
+    const readinessHint = readiness === null ? 'Log your morning metrics to calculate' : readiness >= 80 ? 'Push hard today' : readiness >= 60 ? 'Train normally' : 'Prioritize recovery';
+    const readinessColor = readiness === null ? 'text-zinc-600' : readiness >= 80 ? 'text-teal-400' : readiness >= 60 ? 'text-amber-400' : 'text-red-400';
+
+    // Slow reveal of the readiness number on mount.
+    const [readinessLoaded, setReadinessLoaded] = useState(false);
+    useEffect(() => {
+        const id = requestAnimationFrame(() => setReadinessLoaded(true));
+        return () => cancelAnimationFrame(id);
+    }, []);
+
     const morningPct = Math.round((todayRC.morning.length / Math.max(morningRoutine.length, 1)) * 100);
     const nightPct = Math.round((todayRC.night.length / Math.max(nightRoutine.length, 1)) * 100);
 
-    const calcStreak = (type) => {
-        let s = 0; const list = type === 'morning' ? morningRoutine : nightRoutine; if (!list.length) return 0;
-        for (let i = 0; i < 365; i++) {
-            const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() - i);
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const k = `${y}-${m}-${day}`;
-            if (routineCompletion[k]?.[type]?.length === list.length) s++; else break;
-        }
-        return s;
-    };
     const calcRecentRate = (type) => {
         let hits = 0;
         const list = type === 'morning' ? morningRoutine : nightRoutine;
@@ -434,8 +411,46 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
         }
         return { hits, total: 14 };
     };
-    const readinessLabel = readiness === null ? '—' : readiness >= 85 ? 'Primed' : readiness >= 70 ? 'Good' : readiness >= 50 ? 'Moderate' : 'Recover';
-    const readinessHint = readiness === null ? 'Log your morning metrics to calculate' : readiness >= 80 ? 'Push hard today' : readiness >= 60 ? 'Train normally' : 'Prioritize recovery';
+
+    // Daily intention — debounced save into journal[date].intention
+    const [intentionDraft, setIntentionDraft] = useState(() => journal[date]?.intention || '');
+    const [intentionStatus, setIntentionStatus] = useSaveStatus();
+    const intentionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        setIntentionDraft(journal[date]?.intention || '');
+    }, [date]);
+    const onIntentionChange = (v: string) => {
+        setIntentionDraft(v);
+        setIntentionStatus('saving');
+        if (intentionTimer.current) clearTimeout(intentionTimer.current);
+        intentionTimer.current = setTimeout(() => {
+            const cur = journal[date] || {};
+            saveJournal({ ...journal, [date]: { ...cur, intention: v } });
+            setIntentionStatus('saved');
+        }, 600);
+    };
+
+    // Evening reflection — debounced save into journal[date].reflection
+    const [reflectionDraft, setReflectionDraft] = useState(() => journal[date]?.reflection || '');
+    const [reflectionStatus, setReflectionStatus] = useSaveStatus();
+    const reflectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        setReflectionDraft(journal[date]?.reflection || '');
+    }, [date]);
+    const onReflectionChange = (v: string) => {
+        setReflectionDraft(v);
+        setReflectionStatus('saving');
+        if (reflectionTimer.current) clearTimeout(reflectionTimer.current);
+        reflectionTimer.current = setTimeout(() => {
+            const cur = journal[date] || {};
+            saveJournal({ ...journal, [date]: { ...cur, reflection: v } });
+            setReflectionStatus('saved');
+        }, 600);
+    };
+
+    // Evening reflection only appears after 6pm local time.
+    const showEvening = new Date().getHours() >= 18;
+
     const [behaviorStatus, setBehaviorStatus] = useSaveStatus();
     const toggleBehavior = (id) => {
         setBehaviorStatus('saving');
@@ -447,47 +462,45 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
         setTimeout(() => setBehaviorStatus('saved'), 400);
     };
 
+    const [behaviorsEditing, setBehaviorsEditing] = useState(false);
+    const [newBehavior, setNewBehavior] = useState('');
+    const addBehavior = () => {
+        if (!newBehavior.trim()) return;
+        saveBehaviors([...behaviors, { id: `b-${Date.now()}`, text: newBehavior.trim() }]);
+        setNewBehavior('');
+    };
+
     return (
         <div className="space-y-6">
+            {/* Quote of the day */}
             <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-6">
                 <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em] mb-3">Today's reflection</div>
                 <blockquote className="text-zinc-100 text-base leading-relaxed italic">"{quote.text}"</blockquote>
                 <div className="text-xs text-zinc-500 mt-2">— {quote.author}{quote.context ? <span className="text-zinc-600"> · {quote.context}</span> : null}</div>
             </div>
-            {needsWeighIn && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <div className="text-sm font-medium text-amber-200">Weekly weigh-in</div>
-                            <div className="text-xs text-amber-200/70 mt-0.5">
-                                {lastWeightEntry
-                                    ? `Last logged ${daysSinceWeight} days ago — ${lastWeightEntry[1].weight} ${profile.health_weight_unit || 'kg'}`
-                                    : 'No weight logged yet — enter your current weight to start tracking'}
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={weightDraft}
-                                onChange={(e) => setWeightDraft(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && logWeight()}
-                                placeholder={lastWeightEntry?.[1].weight || '—'}
-                                className="w-20 bg-zinc-900 border border-amber-500/30 rounded px-2 py-1 text-sm focus:outline-none focus:border-amber-500/60"
-                            />
-                            <span className="text-xs text-amber-200/60">{profile.health_weight_unit || 'kg'}</span>
-                            <button onClick={logWeight} disabled={!weightDraft} className="px-3 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-200 rounded text-xs hover:bg-amber-500/30 disabled:opacity-40">Log</button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
+            {/* Daily intention */}
+            <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5">
+                <div className="flex items-baseline justify-between mb-3">
+                    <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">Today's intention</div>
+                    <SaveIndicator status={intentionStatus} />
+                </div>
+                <input
+                    type="text"
+                    value={intentionDraft}
+                    onChange={(e) => onIntentionChange(e.target.value)}
+                    placeholder="What matters most today?"
+                    className="w-full bg-transparent italic text-base text-zinc-100 placeholder:text-zinc-600 focus:outline-none border-b border-transparent focus:border-zinc-700 transition-colors py-1"
+                />
+            </div>
+
+            {/* Readiness */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
                 <div className="flex items-center justify-between">
                     <div>
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Readiness</div>
                         <div className="flex items-baseline gap-3 mt-1">
-                            <div className={`text-5xl font-medium ${readiness === null ? 'text-zinc-600' : readiness >= 80 ? 'text-teal-400' : readiness >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{readiness ?? '—'}</div>
+                            <div className={`text-5xl font-medium ${readinessColor} transition-opacity duration-[1200ms] ease-out ${readinessLoaded ? 'opacity-100' : 'opacity-0'}`}>{readiness ?? '—'}</div>
                             <div className="text-sm text-zinc-400">{readinessLabel}</div>
                         </div>
                         <div className="text-xs text-zinc-500 mt-2">{readinessHint}</div>
@@ -496,49 +509,18 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard accent="purple" label="Sleep" value={todayHealth.sleepHours} suffix="h" sub={baselines.sleep ? `avg ${baselines.sleep}h` : null} index={0} />
-                <StatCard accent="cyan" label="HRV" value={todayHealth.hrv} suffix="ms" sub={baselines.hrv ? `avg ${baselines.hrv}` : null} index={1} />
-                <StatCard accent="rose" label="RHR" value={todayHealth.rhr} suffix="bpm" sub={baselines.rhr ? `avg ${baselines.rhr}` : null} index={2} />
-                <StatCard accent="amber" label="Mood / Energy" index={3} value={
-                    <>
-                        {todayHealth.mood ? <>{todayHealth.mood}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
-                        {' · '}
-                        {todayHealth.energy ? <>{todayHealth.energy}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
-                    </>
-                } />
-            </div>
-
+            {/* Compact practice cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card title="Morning routine" subtitle={`${todayRC.morning.length}/${morningRoutine.length} today · ${calcRecentRate('morning').hits} of last 14 days`} action={() => setView('routines')}>
+                <Card title="Morning practice" subtitle={`${todayRC.morning.length}/${morningRoutine.length} today · ${calcRecentRate('morning').hits} of last 14 days`} action={() => setView('routines')}>
                     <ProgressBar pct={morningPct} color="amber" />
-                    <div className="mt-3 space-y-1">
-                        {morningRoutine.slice(0, 6).map(item => (
-                            <div key={item.id} className={`text-sm flex items-center gap-2 ${todayRC.morning.includes(item.id) ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>
-                                <div className={`w-3 h-3 rounded-sm border ${todayRC.morning.includes(item.id) ? 'bg-amber-500/20 border-amber-500/50' : 'border-zinc-600'} flex items-center justify-center`}>
-                                    {todayRC.morning.includes(item.id) && <Check size={9} className="text-amber-400" />}
-                                </div>
-                                {item.text}
-                            </div>
-                        ))}
-                    </div>
                 </Card>
-                <Card title="Night routine" subtitle={`${todayRC.night.length}/${nightRoutine.length} today · ${calcRecentRate('night').hits} of last 14 days`} action={() => setView('routines')}>
+                <Card title="Evening practice" subtitle={`${todayRC.night.length}/${nightRoutine.length} today · ${calcRecentRate('night').hits} of last 14 days`} action={() => setView('routines')}>
                     <ProgressBar pct={nightPct} color="purple" />
-                    <div className="mt-3 space-y-1">
-                        {nightRoutine.slice(0, 6).map(item => (
-                            <div key={item.id} className={`text-sm flex items-center gap-2 ${todayRC.night.includes(item.id) ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>
-                                <div className={`w-3 h-3 rounded-sm border ${todayRC.night.includes(item.id) ? 'bg-purple-500/20 border-purple-500/50' : 'border-zinc-600'} flex items-center justify-center`}>
-                                    {todayRC.night.includes(item.id) && <Check size={9} className="text-purple-400" />}
-                                </div>
-                                {item.text}
-                            </div>
-                        ))}
-                    </div>
                 </Card>
             </div>
 
-            {behaviors.length > 0 && (
+            {/* Behaviors */}
+            {(behaviors.length > 0 || behaviorsEditing) && (
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                     <div className="flex items-baseline justify-between mb-3">
                         <div>
@@ -547,29 +529,51 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
                         </div>
                         <div className="flex items-center gap-3">
                             <SaveIndicator status={behaviorStatus} />
-                            <button onClick={() => setView('settings')} className="text-xs text-zinc-500 hover:text-zinc-300">Customize</button>
+                            <button onClick={() => setBehaviorsEditing(!behaviorsEditing)} className="text-xs text-zinc-500 hover:text-zinc-300">{behaviorsEditing ? 'Done' : 'Edit'}</button>
                         </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {behaviors.map(b => {
-                            const v = todayBL[b.id];
-                            const cls = v === true ? 'bg-red-500/20 border-red-500/50 text-red-300' : v === false ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400';
-                            return <button key={b.id} onClick={() => toggleBehavior(b.id)} className={`px-3 py-1.5 rounded-md border text-xs ${cls}`}>{v === true ? '✓' : v === false ? '✗' : '○'} {b.text}</button>;
-                        })}
-                    </div>
+                    {behaviors.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {behaviors.map(b => {
+                                const v = todayBL[b.id];
+                                const cls = v === true ? 'bg-red-500/20 border-red-500/50 text-red-300' : v === false ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400';
+                                return <button key={b.id} onClick={() => toggleBehavior(b.id)} className={`px-3 py-1.5 rounded-md border text-xs ${cls}`}>{v === true ? '✓' : v === false ? '✗' : '○'} {b.text}</button>;
+                            })}
+                        </div>
+                    )}
+                    {behaviorsEditing && (
+                        <div className="mt-3 pt-3 border-t border-zinc-800 space-y-1">
+                            {behaviors.map(b => (
+                                <div key={b.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 rounded">
+                                    <input value={b.text} onChange={(e) => saveBehaviors(behaviors.map(x => x.id === b.id ? { ...x, text: e.target.value } : x))} className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-zinc-700" />
+                                    <button onClick={() => saveBehaviors(behaviors.filter(x => x.id !== b.id))} className="text-zinc-500 hover:text-red-400 p-1"><Trash2 size={14} /></button>
+                                </div>
+                            ))}
+                            <div className="flex gap-2 mt-2">
+                                <input value={newBehavior} onChange={(e) => setNewBehavior(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addBehavior(); }} placeholder="Add behavior (e.g. cold shower)..." className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-zinc-500" />
+                                <button onClick={addBehavior} disabled={!newBehavior.trim()} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded hover:bg-zinc-700 disabled:opacity-40"><Plus size={14} /></button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card title="Today's workout" action={() => setView('gym')}>
-                    {todayWorkout?.exercises?.length ? (
-                        <div className="space-y-1.5">{todayWorkout.exercises.slice(0, 4).map((ex, i) => <div key={i} className="flex justify-between text-xs"><span className="text-zinc-300">{ex.name || 'Unnamed'}</span><span className="text-zinc-500">{ex.sets?.length || 0} sets</span></div>)}</div>
-                    ) : <div className="text-xs text-zinc-500">No workout logged. Tap to start →</div>}
-                </Card>
-                <Card title="Journal" action={() => setView('journal')}>
-                    {todayJournal.text ? <div className="text-xs text-zinc-400 line-clamp-4 whitespace-pre-wrap">{todayJournal.text}</div> : <div className="text-xs text-zinc-500">No entry today. Tap to write →</div>}
-                </Card>
-            </div>
+            {/* Evening reflection (only after 6pm local) */}
+            {showEvening && (
+                <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-5">
+                    <div className="flex items-baseline justify-between mb-3">
+                        <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-[0.08em]">Evening reflection</div>
+                        <SaveIndicator status={reflectionStatus} />
+                    </div>
+                    <textarea
+                        value={reflectionDraft}
+                        onChange={(e) => onReflectionChange(e.target.value)}
+                        rows={3}
+                        placeholder="How was today?"
+                        className="w-full bg-transparent text-base text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none border-b border-transparent focus:border-zinc-700 transition-colors py-1"
+                    />
+                </div>
+            )}
         </div>
     );
 }
@@ -1550,7 +1554,17 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden max-h-[600px] overflow-y-auto">
-                    <div className="text-xs text-zinc-500 px-3 py-2 border-b border-zinc-800 sticky top-0 bg-zinc-900">{sortedDates.length} {sortedDates.length === 1 ? 'day' : 'days'}</div>
+                    <div className="sticky top-0 bg-zinc-900 z-10 border-b border-zinc-800">
+                        <div className="px-3 py-2">
+                            <input
+                                type="date"
+                                value={selected}
+                                onChange={(e) => setSelected(e.target.value)}
+                                className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-sm text-zinc-300 focus:outline-none focus:border-zinc-600"
+                            />
+                        </div>
+                        <div className="text-xs text-zinc-500 px-3 py-2 border-t border-zinc-800">{sortedDates.length} {sortedDates.length === 1 ? 'day' : 'days'}</div>
+                    </div>
                     {sortedDates.length === 0 ? <div className="text-xs text-zinc-600 px-3 py-4 text-center">No data yet</div> :
                         sortedDates.map(d => {
                             const has = { h: !!healthLog[d], r: !!(routineCompletion[d]?.morning?.length || routineCompletion[d]?.night?.length), w: !!workouts[d]?.exercises?.length, j: !!journal[d]?.text };
@@ -1610,9 +1624,8 @@ function HistoryView({ healthLog, routineCompletion, workouts, journal, morningR
 }
 
 // ============ SETTINGS ============
-function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLog, saveHealth }) {
+function SettingsView({ profile, saveProfile, healthLog, saveHealth, setView }) {
     const [name, setName] = useState(profile.name || '');
-    const [newBehavior, setNewBehavior] = useState('');
     const [importStatus, setImportStatus] = useState('');
     const [whoopText, setWhoopText] = useState('');
     const [ouraText, setOuraText] = useState('');
@@ -1652,6 +1665,12 @@ function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLo
         <div className="space-y-5">
             <div><h2 className="text-xl font-medium">Settings</h2><p className="text-sm text-zinc-500">Profile, customizations, imports</p></div>
 
+            <Section title="History">
+                <button onClick={() => setView('history')} className="bg-zinc-800 border border-zinc-700 px-4 py-2 rounded text-sm hover:bg-zinc-700 text-zinc-200 flex items-center gap-2">
+                    <Calendar size={14} /> View full history
+                </button>
+            </Section>
+
             <Section title="Profile">
                 <Field label="Your name (shown on dashboard)">
                     <div className="flex gap-2">
@@ -1660,22 +1679,6 @@ function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLo
                         <div className="self-center"><SaveIndicator status={profileStatus} /></div>
                     </div>
                 </Field>
-            </Section>
-
-            <Section title="Daily behaviors (Whoop-style yes/no tracking)">
-                <p className="text-xs text-zinc-500">These show on Today. Toggle each daily and we'll correlate against your readiness in Trends.</p>
-                <div className="space-y-1">
-                    {behaviors.map(b => (
-                        <div key={b.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-zinc-800/50 rounded">
-                            <input value={b.text} onChange={(e) => saveBehaviors(behaviors.map(x => x.id === b.id ? { ...x, text: e.target.value } : x))} className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-zinc-700" />
-                            <button onClick={() => saveBehaviors(behaviors.filter(x => x.id !== b.id))} className="text-zinc-500 hover:text-red-400 p-1"><Trash2 size={14} /></button>
-                        </div>
-                    ))}
-                </div>
-                <div className="flex gap-2 mt-2">
-                    <input value={newBehavior} onChange={(e) => setNewBehavior(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newBehavior.trim()) { saveBehaviors([...behaviors, { id: `b-${Date.now()}`, text: newBehavior.trim() }]); setNewBehavior(''); } }} placeholder="Add behavior (e.g. cold shower, magnesium)..." className="flex-1 bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-zinc-500" />
-                    <button onClick={() => { if (newBehavior.trim()) { saveBehaviors([...behaviors, { id: `b-${Date.now()}`, text: newBehavior.trim() }]); setNewBehavior(''); } }} className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded hover:bg-zinc-700"><Plus size={14} /></button>
-                </div>
             </Section>
 
             <Section title="Import from Whoop">
@@ -1777,6 +1780,19 @@ function FeedbackModal({ onClose }) {
 function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, routineCompletion, morningRoutine, nightRoutine }) {
     const today = todayKey();
 
+    // ===== Range selector =====
+    const RANGES = [
+        { id: 'week', label: 'Week', days: 7, title: 'This week', priorLabel: 'vs prior week' },
+        { id: 'month', label: 'Month', days: 30, title: 'This month', priorLabel: 'vs prior month' },
+        { id: '3mo', label: '3 Months', days: 90, title: 'Last 3 months', priorLabel: 'vs prior 3 months' },
+        { id: '6mo', label: '6 Months', days: 180, title: 'Last 6 months', priorLabel: 'vs prior 6 months' },
+        { id: 'year', label: 'Year', days: 365, title: 'This year', priorLabel: 'vs prior year' },
+    ];
+    const [rangeId, setRangeId] = useState('week');
+    const range = RANGES.find(r => r.id === rangeId) || RANGES[0];
+    const rangeDays = range.days;
+    const showLongTermStats = rangeId === '6mo' || rangeId === 'year';
+
     // ===== Helper: pick the most recent N days from a date object =====
     const lastNDays = (n, endDate = today) => {
         const dates = [];
@@ -1794,42 +1810,42 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
     const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
     const fmt = (n, digits = 1) => n === null ? '—' : Number(n.toFixed(digits));
 
-    // ===== Weekly stats (last 7 days vs prior 7 days) =====
-    const thisWeekDates = lastNDays(7);
-    const lastWeekDates = (() => {
+    // ===== Current range vs prior period of same length =====
+    const currentDates = lastNDays(rangeDays);
+    const priorDates = (() => {
         const d = new Date(today + 'T00:00:00');
-        d.setDate(d.getDate() - 7);
+        d.setDate(d.getDate() - rangeDays);
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
-        return lastNDays(7, `${y}-${m}-${day}`);
+        return lastNDays(rangeDays, `${y}-${m}-${day}`);
     })();
 
     const collectMetric = (dates, metric) => {
         return dates.map(d => healthLog[d]?.[metric]).filter(v => v != null && !isNaN(v));
     };
 
-    const thisWeekSleep = collectMetric(thisWeekDates, 'sleepHours');
-    const lastWeekSleep = collectMetric(lastWeekDates, 'sleepHours');
-    const thisWeekHRV = collectMetric(thisWeekDates, 'hrv');
-    const lastWeekHRV = collectMetric(lastWeekDates, 'hrv');
-    const thisWeekRHR = collectMetric(thisWeekDates, 'rhr');
-    const lastWeekRHR = collectMetric(lastWeekDates, 'rhr');
-    const thisWeekMood = collectMetric(thisWeekDates, 'mood');
-    const thisWeekEnergy = collectMetric(thisWeekDates, 'energy');
+    const currentSleep = collectMetric(currentDates, 'sleepHours');
+    const priorSleep = collectMetric(priorDates, 'sleepHours');
+    const currentHRV = collectMetric(currentDates, 'hrv');
+    const priorHRV = collectMetric(priorDates, 'hrv');
+    const currentRHR = collectMetric(currentDates, 'rhr');
+    const priorRHR = collectMetric(priorDates, 'rhr');
+    const currentMood = collectMetric(currentDates, 'mood');
+    const currentEnergy = collectMetric(currentDates, 'energy');
 
-    const sleepDelta = (avg(thisWeekSleep) ?? 0) - (avg(lastWeekSleep) ?? 0);
-    const hrvDelta = (avg(thisWeekHRV) ?? 0) - (avg(lastWeekHRV) ?? 0);
-    const rhrDelta = (avg(thisWeekRHR) ?? 0) - (avg(lastWeekRHR) ?? 0);
+    const sleepDelta = (avg(currentSleep) ?? 0) - (avg(priorSleep) ?? 0);
+    const hrvDelta = (avg(currentHRV) ?? 0) - (avg(priorHRV) ?? 0);
+    const rhrDelta = (avg(currentRHR) ?? 0) - (avg(priorRHR) ?? 0);
 
-    const workoutsThisWeek = thisWeekDates.filter(d => workouts[d]?.exercises?.length > 0).length;
-    const workoutsLastWeek = lastWeekDates.filter(d => workouts[d]?.exercises?.length > 0).length;
+    const workoutsCurrent = currentDates.filter(d => workouts[d]?.exercises?.length > 0).length;
+    const workoutsPrior = priorDates.filter(d => workouts[d]?.exercises?.length > 0).length;
 
-    const morningHits = thisWeekDates.filter(d =>
+    const morningHits = currentDates.filter(d =>
         morningRoutine.length > 0 && (routineCompletion[d]?.morning?.length || 0) >= morningRoutine.length
     ).length;
 
-    // ===== Best/worst day this week (by readiness proxy: sleep+mood+energy) =====
+    // ===== Best/worst day in range (by readiness proxy: sleep+mood+energy) =====
     const dayScore = (d) => {
         const log = healthLog[d] || {};
         let sum = 0, n = 0;
@@ -1839,21 +1855,16 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
         if (log.hrv && log.rhr) { sum += 70; n++; }  // proxy
         return n > 0 ? sum / n : null;
     };
-    const dayScores = thisWeekDates.map(d => ({ date: d, score: dayScore(d) })).filter(x => x.score !== null);
+    const dayScores = currentDates.map(d => ({ date: d, score: dayScore(d) })).filter(x => x.score !== null);
     const bestDay = dayScores.reduce((b, x) => !b || x.score > b.score ? x : b, null);
     const worstDay = dayScores.reduce((w, x) => !w || x.score < w.score ? x : w, null);
 
-    // ===== Yearly stats =====
-    const allLoggedDates = Object.keys(healthLog).sort();
-    const thisYearDates = allLoggedDates.filter(d => d.startsWith(today.slice(0, 4)));
-    const yearSleep = thisYearDates.map(d => healthLog[d]?.sleepHours).filter(v => v != null);
-    const yearHRV = thisYearDates.map(d => healthLog[d]?.hrv).filter(v => v != null);
-    const yearRHR = thisYearDates.map(d => healthLog[d]?.rhr).filter(v => v != null);
-    const totalWorkouts = Object.keys(workouts).filter(d => d.startsWith(today.slice(0, 4)) && workouts[d]?.exercises?.length > 0).length;
+    // ===== Days actually tracked in this range (any health log) =====
+    const trackedDays = currentDates.filter(d => healthLog[d]).length;
 
-    // ===== Best month by avg sleep =====
+    // ===== Best month by avg sleep (within range) =====
     const monthlyAvgs = {};
-    thisYearDates.forEach(d => {
+    currentDates.forEach(d => {
         const m = d.slice(0, 7);
         if (!monthlyAvgs[m]) monthlyAvgs[m] = [];
         if (healthLog[d]?.sleepHours) monthlyAvgs[m].push(healthLog[d].sleepHours);
@@ -1863,10 +1874,9 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
         .filter(x => x.count >= 5 && x.avg !== null)
         .sort((a, b) => b.avg - a.avg)[0];
 
-    // ===== Longest morning routine streak this year =====
+    // ===== Longest morning routine streak within range =====
     let longestStreak = 0, currentStreak = 0;
-    const sortedDates = thisYearDates.sort();
-    for (const d of sortedDates) {
+    for (const d of [...currentDates].sort()) {
         const completed = (routineCompletion[d]?.morning?.length || 0) >= morningRoutine.length && morningRoutine.length > 0;
         if (completed) {
             currentStreak++;
@@ -1971,30 +1981,43 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
             </div>
 
 
-            {/* THIS WEEK */}
+            {/* DYNAMIC RANGE SECTION */}
             <div>
-                <div className="flex items-baseline justify-between mb-3">
-                    <h3 className="text-base font-medium">This week</h3>
-                    <span className="text-xs text-zinc-500">vs prior 7 days</span>
+                <div className="flex items-baseline justify-between gap-3 mb-3 flex-wrap">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                        <h3 className="text-base font-medium">{range.title}</h3>
+                        <span className="text-xs text-zinc-500">{range.priorLabel}</span>
+                    </div>
+                    <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-md p-1">
+                        {RANGES.map(r => (
+                            <button
+                                key={r.id}
+                                onClick={() => setRangeId(r.id)}
+                                className={`px-3 py-1 text-xs rounded ${rangeId === r.id ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400'}`}
+                            >
+                                {r.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Stat index={0} label="Sleep avg" value={avg(thisWeekSleep)} suffix="h" precision={1} delta={sleepDelta} deltaUnit="h" />
-                    <Stat index={1} label="HRV avg" value={avg(thisWeekHRV)} suffix="ms" delta={hrvDelta} deltaUnit="ms" />
-                    <Stat index={2} label="RHR avg" value={avg(thisWeekRHR)} suffix="bpm" delta={rhrDelta} deltaUnit="bpm" deltaInverted />
-                    <Stat index={3} label="Workouts" value={workoutsThisWeek} delta={workoutsThisWeek - workoutsLastWeek} />
+                    <Stat index={0} label="Sleep avg" value={avg(currentSleep)} suffix="h" precision={1} delta={sleepDelta} deltaUnit="h" />
+                    <Stat index={1} label="HRV avg" value={avg(currentHRV)} suffix="ms" delta={hrvDelta} deltaUnit="ms" />
+                    <Stat index={2} label="RHR avg" value={avg(currentRHR)} suffix="bpm" delta={rhrDelta} deltaUnit="bpm" deltaInverted />
+                    <Stat index={3} label="Workouts" value={workoutsCurrent} delta={workoutsCurrent - workoutsPrior} />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Mood / Energy avg</div>
                         <div className="text-2xl font-medium mt-1">
-                            {avg(thisWeekMood) ? <>{fmt(avg(thisWeekMood), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
+                            {avg(currentMood) ? <>{fmt(avg(currentMood), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
                             {' · '}
-                            {avg(thisWeekEnergy) ? <>{fmt(avg(thisWeekEnergy), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
+                            {avg(currentEnergy) ? <>{fmt(avg(currentEnergy), 1)}<span className="text-zinc-500 text-[0.6em] font-normal">/10</span></> : '—'}
                         </div>
                     </div>
                     <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <div className="text-xs text-zinc-500 uppercase tracking-wide">Morning routines hit</div>
-                        <div className="text-2xl font-medium mt-1">{morningHits} / 7 days</div>
+                        <div className="text-2xl font-medium mt-1">{morningHits} / {rangeDays} days</div>
                     </div>
                 </div>
                 {(bestDay || worstDay) && (
@@ -2021,38 +2044,26 @@ function InsightsView({ healthLog, journal, behaviorLog, behaviors, workouts, ro
                         )}
                     </div>
                 )}
-            </div>
-
-            {/* THIS YEAR */}
-            <div>
-                <div className="flex items-baseline justify-between mb-3">
-                    <h3 className="text-base font-medium">This year ({today.slice(0, 4)})</h3>
-                    <span className="text-xs text-zinc-500">{thisYearDates.length} days tracked</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Stat index={0} label="Avg sleep" value={avg(yearSleep)} suffix="h" precision={1} />
-                    <Stat index={1} label="Avg HRV" value={avg(yearHRV)} suffix="ms" />
-                    <Stat index={2} label="Avg RHR" value={avg(yearRHR)} suffix="bpm" />
-                    <Stat index={3} label="Workouts" value={totalWorkouts} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                    {bestMonthEntry && (
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                            <div className="text-xs text-zinc-500 uppercase tracking-wide">Best sleep month</div>
-                            <div className="text-base font-medium mt-1">
-                                {new Date(bestMonthEntry.month + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {showLongTermStats && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        {bestMonthEntry && (
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                                <div className="text-xs text-zinc-500 uppercase tracking-wide">Best sleep month</div>
+                                <div className="text-base font-medium mt-1">
+                                    {new Date(bestMonthEntry.month + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                                </div>
+                                <div className="text-xs text-zinc-500 mt-1">avg {fmt(bestMonthEntry.avg)}h</div>
                             </div>
-                            <div className="text-xs text-zinc-500 mt-1">avg {fmt(bestMonthEntry.avg)}h</div>
+                        )}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <div className="text-xs text-zinc-500 uppercase tracking-wide">Longest morning routine streak</div>
+                            <div className="text-base font-medium mt-1">{longestStreak} days</div>
                         </div>
-                    )}
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                        <div className="text-xs text-zinc-500 uppercase tracking-wide">Longest morning routine streak</div>
-                        <div className="text-base font-medium mt-1">{longestStreak} days</div>
                     </div>
-                </div>
+                )}
             </div>
 
-            {thisYearDates.length < 14 && (
+            {trackedDays < 14 && (
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center text-sm text-zinc-500">
                     More data = better insights. Keep logging!
                 </div>

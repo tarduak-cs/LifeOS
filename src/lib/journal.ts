@@ -4,6 +4,8 @@ import { supabase } from './supabase'
 export type JournalEntry = {
   text?: string
   mood?: number
+  intention?: string
+  reflection?: string
 }
 
 export type JournalMap = Record<string, JournalEntry>
@@ -12,6 +14,8 @@ type JournalRow = {
   date: string
   text: string | null
   mood: number | null
+  intention: string | null
+  reflection: string | null
 }
 
 // Load every journal entry for the current user, return as a date-keyed map.
@@ -21,7 +25,7 @@ export async function loadJournal(): Promise<JournalMap> {
 
   const { data, error } = await supabase
     .from('journal_entries')
-    .select('date, text, mood')
+    .select('date, text, mood, intention, reflection')
     .eq('user_id', user.id)
     .order('date', { ascending: false })
 
@@ -35,6 +39,8 @@ export async function loadJournal(): Promise<JournalMap> {
     const entry: JournalEntry = {}
     if (row.text) entry.text = row.text
     if (row.mood !== null) entry.mood = row.mood
+    if (row.intention) entry.intention = row.intention
+    if (row.reflection) entry.reflection = row.reflection
     map[row.date] = entry
   }
   return map
@@ -50,6 +56,8 @@ export async function saveJournalEntry(date: string, entry: JournalEntry): Promi
     date,
     text: entry.text || null,
     mood: entry.mood ?? null,
+    intention: entry.intention || null,
+    reflection: entry.reflection || null,
     updated_at: new Date().toISOString(),
   }
 
