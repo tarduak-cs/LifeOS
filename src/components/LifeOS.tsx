@@ -5,6 +5,7 @@ import { loadProfile, saveProfile as saveProfileToDB } from '../lib/profile';
 import { loadHealthLogs, saveHealthLog } from '../lib/health';
 import { loadRoutineItems, saveRoutineItems, loadRoutineCompletions, saveRoutineCompletionsForDate } from '../lib/routines';
 import { importWhoopCsv } from '../lib/imports/whoop';
+import { importOuraCsv } from '../lib/imports/oura';
 import { getQuoteOfTheDay } from '../lib/quotes';
 import { loadJournal, saveJournalEntry } from '../lib/journal';
 import { useSaveStatus, SaveIndicator } from '../lib/saveStatus';
@@ -1493,6 +1494,8 @@ function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLo
     const [newBehavior, setNewBehavior] = useState('');
     const [importStatus, setImportStatus] = useState('');
     const [whoopText, setWhoopText] = useState('');
+    const [ouraText, setOuraText] = useState('');
+    const [ouraImportStatus, setOuraImportStatus] = useState('');
 
     const [profileStatus, setProfileStatus] = useSaveStatus();
     const saveName = () => {
@@ -1510,6 +1513,17 @@ function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLo
         } else {
             setImportStatus(`Imported ${result.imported} day${result.imported !== 1 ? 's' : ''} (${result.skipped} skipped from ${result.total} rows). Reload the page to see them.`);
             setWhoopText('');
+        }
+    };
+    const importOura = async () => {
+        if (!ouraText.trim()) return;
+        setOuraImportStatus('Importing...');
+        const result = await importOuraCsv(ouraText);
+        if (result.error) {
+            setOuraImportStatus(`Error: ${result.error}`);
+        } else {
+            setOuraImportStatus(`Imported ${result.imported} day${result.imported !== 1 ? 's' : ''} (${result.skipped} skipped from ${result.total} rows). Reload the page to see them.`);
+            setOuraText('');
         }
     };
 
@@ -1550,6 +1564,15 @@ function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLo
                 <div className="flex items-center gap-3">
                     <button onClick={importWhoop} disabled={!whoopText.trim()} className="px-4 py-2 bg-teal-600/20 border border-teal-500/40 text-teal-300 rounded text-sm hover:bg-teal-600/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"><Upload size={14} /> Import</button>
                     {importStatus && <div className="text-xs text-zinc-400">{importStatus}</div>}
+                </div>
+            </Section>
+            <Section title="Import from Oura">
+                <p className="text-xs text-zinc-500"><strong className="text-zinc-300">How to export:</strong> Sign in to <span className="text-zinc-300">cloud.ouraring.com</span> → Trends → pick a date range → Download CSV.</p>
+                <p className="text-xs text-zinc-500">Open the CSV in any text editor or Excel, copy all, paste below. I'll auto-detect columns for date, RHR, HRV, and sleep.</p>
+                <textarea value={ouraText} onChange={(e) => setOuraText(e.target.value)} rows={8} placeholder='Paste Oura CSV here. Headers like: "date","Total Sleep Duration","Average Resting Heart Rate","Average HRV"...' className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-zinc-500 resize-none" />
+                <div className="flex items-center gap-3">
+                    <button onClick={importOura} disabled={!ouraText.trim()} className="px-4 py-2 bg-teal-600/20 border border-teal-500/40 text-teal-300 rounded text-sm hover:bg-teal-600/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"><Upload size={14} /> Import</button>
+                    {ouraImportStatus && <div className="text-xs text-zinc-400">{ouraImportStatus}</div>}
                 </div>
             </Section>
         </div>
