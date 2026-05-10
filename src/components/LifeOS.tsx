@@ -157,7 +157,12 @@ export default function LifeOS() {
         setRoutineCompletion(data);
         for (const date in data) {
             if (JSON.stringify(data[date]) !== JSON.stringify(routineCompletion[date])) {
-                saveRoutineCompletionsForDate(date, data[date].morning || [], data[date].night || []);
+                saveRoutineCompletionsForDate(
+                    date,
+                    data[date].morning || [],
+                    data[date].night || [],
+                    data[date].skipReasons || {}
+                );
             }
         }
     };
@@ -404,7 +409,21 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
         }
         return s;
     };
-
+    const calcRecentRate = (type) => {
+        let hits = 0;
+        const list = type === 'morning' ? morningRoutine : nightRoutine;
+        if (!list.length) return { hits: 0, total: 14 };
+        for (let i = 0; i < 14; i++) {
+            const d = new Date(date + 'T00:00:00');
+            d.setDate(d.getDate() - i);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const k = `${y}-${m}-${day}`;
+            if ((routineCompletion[k]?.[type]?.length || 0) >= list.length) hits++;
+        }
+        return { hits, total: 14 };
+    };
     const readinessLabel = readiness === null ? '—' : readiness >= 85 ? 'Primed' : readiness >= 70 ? 'Good' : readiness >= 50 ? 'Moderate' : 'Recover';
     const readinessHint = readiness === null ? 'Log your morning metrics to calculate' : readiness >= 80 ? 'Push hard today' : readiness >= 60 ? 'Train normally' : 'Prioritize recovery';
     const [behaviorStatus, setBehaviorStatus] = useSaveStatus();
@@ -481,7 +500,7 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card title="Morning routine" subtitle={`${todayRC.morning.length}/${morningRoutine.length} • ${calcStreak('morning')}d streak`} action={() => setView('routines')}>
+                <Card title="Morning routine" subtitle={`${todayRC.morning.length}/${morningRoutine.length} today · ${calcRecentRate('morning').hits} of last 14 days`} action={() => setView('routines')}>
                     <ProgressBar pct={morningPct} color="amber" />
                     <div className="mt-3 space-y-1">
                         {morningRoutine.slice(0, 6).map(item => (
@@ -494,7 +513,7 @@ function TodayView({ date, profile, healthLog, saveHealth, morningRoutine, night
                         ))}
                     </div>
                 </Card>
-                <Card title="Night routine" subtitle={`${todayRC.night.length}/${nightRoutine.length} • ${calcStreak('night')}d streak`} action={() => setView('routines')}>
+                <Card title="Night routine" subtitle={`${todayRC.night.length}/${nightRoutine.length} today · ${calcRecentRate('night').hits} of last 14 days`} action={() => setView('routines')}>
                     <ProgressBar pct={nightPct} color="purple" />
                     <div className="mt-3 space-y-1">
                         {nightRoutine.slice(0, 6).map(item => (
@@ -670,18 +689,81 @@ function Field({ label, children }) { return <div><label className="block text-x
 
 // ============ ROUTINES ============
 function RoutinesView({ date, morningRoutine, saveMR, nightRoutine, saveNR, routineCompletion, saveRC }) {
+    const [skipMenuFor, setSkipMenuFor] = useState(null);
+    const todaySkipReasons = (routineCompletion[date]?.skipReasons) || {};
+
+    const setSkipReason = (itemId, reason) => {
+        const current = routineCompletion[date] || { morning: [], night: [], skipReasons: {} };
+        const updatedReasons = { ...todaySkipReasons };
+        if (reason) {
+            updatedReasons[itemId] = reason;
+        } else {
+            delete updatedReasons[itemId];
+        }
+        saveRC({ ...routineCompletion, [date]: { ...current, skipReasons: updatedReasons } });
+        setSkipMenuFor(null);
+    };
+
+    const SKIP_REASONS = [
+        { id: 'sick', label: '🤒 Sick' },
+        { id: 'travel', label: '🌍 Travel' },
+        { id: 'busy', label: '🏃 Busy' },
+        { id: 'tired', label: '😴 Tired' },
+        { id: 'forgot', label: '🤷 Forgot' },
+        { id: 'rest', label: '🛌 Rest day' },
+    ];
+
     return (
         <div className="space-y-5">
-            <div><h2 className="text-xl font-medium">Routines</h2><p className="text-sm text-zinc-500">Edit your morning & night checklists</p></div>
+            <div><h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Routines</h2><p className="text-sm text-zinc-500 mt-0.5">Edit your morning & night checklists</p></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <RoutineEditor title="Morning" icon={Sun} color="amber" items={morningRoutine} saveItems={saveMR} completed={routineCompletion[date]?.morning || []} onToggle={(id) => { const day = routineCompletion[date] || { morning: [], night: [] }; const morning = day.morning.includes(id) ? day.morning.filter(x => x !== id) : [...day.morning, id]; saveRC({ ...routineCompletion, [date]: { ...day, morning } }); }} />
-                <RoutineEditor title="Night" icon={Moon} color="purple" items={nightRoutine} saveItems={saveNR} completed={routineCompletion[date]?.night || []} onToggle={(id) => { const day = routineCompletion[date] || { morning: [], night: [] }; const night = day.night.includes(id) ? day.night.filter(x => x !== id) : [...day.night, id]; saveRC({ ...routineCompletion, [date]: { ...day, night } }); }} />
+                <RoutineEditor
+                    title="Morning"
+                    icon={Sun}
+                    color="amber"
+                    items={morningRoutine}
+                    saveItems={saveMR}
+                    completed={routineCompletion[date]?.morning || []}
+                    onToggle={(id) => {
+                        console.log('Toggling. App date is:', date, '· todayKey is:', todayKey());
+                        const day = routineCompletion[date] || { morning: [], night: [], skipReasons: {} };
+                        const morning = (day.morning || []).includes(id)
+                            ? day.morning.filter(x => x !== id)
+                            : [...(day.morning || []), id];
+                        saveRC({ ...routineCompletion, [date]: { ...day, morning } });
+                    }}
+                    skipReasons={todaySkipReasons}
+                    onSetSkipReason={setSkipReason}
+                    skipMenuFor={skipMenuFor}
+                    setSkipMenuFor={setSkipMenuFor}
+                    skipReasonOptions={SKIP_REASONS}
+                />
+                <RoutineEditor
+                    title="Night"
+                    icon={Moon}
+                    color="purple"
+                    items={nightRoutine}
+                    saveItems={saveNR}
+                    completed={routineCompletion[date]?.night || []}
+                    onToggle={(id) => {
+                        const day = routineCompletion[date] || { morning: [], night: [], skipReasons: {} };
+                        const night = (day.night || []).includes(id)
+                            ? day.night.filter(x => x !== id)
+                            : [...(day.night || []), id];
+                        saveRC({ ...routineCompletion, [date]: { ...day, night } });
+                    }}
+                    skipReasons={todaySkipReasons}
+                    onSetSkipReason={setSkipReason}
+                    skipMenuFor={skipMenuFor}
+                    setSkipMenuFor={setSkipMenuFor}
+                    skipReasonOptions={SKIP_REASONS}
+                />
             </div>
         </div>
     );
 }
 
-function RoutineEditor({ title, icon: Icon, color, items, saveItems, completed, onToggle }) {
+function RoutineEditor({ title, icon: Icon, color, items, saveItems, completed, onToggle, skipReasons = {}, onSetSkipReason, skipMenuFor, setSkipMenuFor, skipReasonOptions = [] }) {
     const [editing, setEditing] = useState(false);
     const [newText, setNewText] = useState('');
     const [draft, setDraft] = useState(items);  // local copy for smooth editing
@@ -738,10 +820,52 @@ function RoutineEditor({ title, icon: Icon, color, items, saveItems, completed, 
                                 <button onClick={() => updateDraft(draft.filter(i => i.id !== item.id))} className="text-zinc-500 hover:text-red-400 p-1"><Trash2 size={14} /></button>
                             </>
                         ) : (
-                            <button onClick={() => onToggle(item.id)} className={`w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-zinc-800/50 text-left ${completed.includes(item.id) ? 'text-zinc-500' : 'text-zinc-200'}`}>
-                                <div className={`w-4 h-4 rounded border ${completed.includes(item.id) ? `${c.bg} ${c.br}` : 'border-zinc-600'} flex items-center justify-center flex-shrink-0`}>{completed.includes(item.id) && <Check size={11} className={c.txt} />}</div>
-                                <span className={`text-sm ${completed.includes(item.id) ? 'line-through' : ''}`}>{item.text}</span>
-                            </button>
+                            <div className="w-full">
+                                <div className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-zinc-800/50 group">
+                                    <button onClick={() => onToggle(item.id)} className="flex items-center gap-3 flex-1 text-left">
+                                        <div className={`w-4 h-4 rounded border ${completed.includes(item.id) ? `${c.bg} ${c.br}` : 'border-zinc-600'} flex items-center justify-center flex-shrink-0`}>{completed.includes(item.id) && <Check size={11} className={c.txt} />}</div>
+                                        <span className={`text-sm ${completed.includes(item.id) ? 'text-zinc-500 line-through' : 'text-zinc-200'}`}>{item.text}</span>
+                                        {skipReasons[item.id] && !completed.includes(item.id) && (
+                                            <span className="text-xs text-zinc-500 ml-2">{skipReasonOptions.find(r => r.id === skipReasons[item.id])?.label || skipReasons[item.id]}</span>
+                                        )}
+                                    </button>
+                                    {!completed.includes(item.id) && setSkipMenuFor && (
+                                        <button
+                                            onClick={() => setSkipMenuFor(skipMenuFor?.itemId === item.id ? null : { itemId: item.id })}
+                                            className="text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded px-2 py-0.5 border border-zinc-800 hover:border-zinc-700 transition-colors"
+                                        >
+                                            {skipReasons[item.id] ? 'change' : 'why skip?'}
+                                        </button>
+                                    )}
+                                </div>
+                                {skipMenuFor?.itemId === item.id && !completed.includes(item.id) && (
+                                    <div className="ml-7 mt-1 mb-2 flex flex-wrap gap-1.5">
+                                        {skipReasonOptions.map(r => (
+                                            <button
+                                                key={r.id}
+                                                onClick={() => {
+                                                    onSetSkipReason(item.id, r.id);
+                                                    setSkipMenuFor(null);
+                                                }}
+                                                className={`text-xs px-2 py-1 rounded border ${skipReasons[item.id] === r.id ? 'bg-zinc-700 border-zinc-600 text-zinc-100' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}
+                                            >
+                                                {r.label}
+                                            </button>
+                                        ))}
+                                        {skipReasons[item.id] && (
+                                            <button
+                                                onClick={() => {
+                                                    onSetSkipReason(item.id, null);
+                                                    setSkipMenuFor(null);
+                                                }}
+                                                className="text-xs px-2 py-1 rounded border bg-zinc-800 border-zinc-700 text-rose-400 hover:bg-zinc-700"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 ))}

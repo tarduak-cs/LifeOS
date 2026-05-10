@@ -1,19 +1,16 @@
 import { supabase } from './supabase'
 
-// ============ TYPES ============
-export type RoutineItem = {
-  id: string          // uuid from supabase
-  text: string
-  position: number
+export type RoutineItem = { id: string; text: string; position?: number }
+export type RoutineCompletion = {
+  morning?: string[]
+  night?: string[]
+  skipReasons?: Record<string, string>
 }
 
-export type RoutineCompletionMap = Record<string, { morning: string[]; night: string[] }>
-
-// ============ DEFAULTS (seeded on first login) ============
-const DEFAULT_MORNING_TEXTS = [
+const DEFAULT_MORNING = [
   'Drink water (hydration)',
   'Make bed',
-  'Walk / fresh air',
+  'Walk / get morning sunlight',
   'Stretch / mobility',
   'Yoga',
   'Meditation',
@@ -21,18 +18,15 @@ const DEFAULT_MORNING_TEXTS = [
   'Review day plan',
 ]
 
-const DEFAULT_NIGHT_TEXTS = [
-  'Phone away by 10pm',
+const DEFAULT_NIGHT = [
   'Brush + skincare',
   'Read 10 min',
   'Journal entry',
   'Plan tomorrow',
   'Lights out by 11pm',
+  'Phone away by 10pm',
 ]
 
-// ============ ROUTINE ITEMS ============
-
-// Load morning + night items. If user has zero items of a type, seeds defaults.
 export async function loadRoutineItems(): Promise<{ morning: RoutineItem[]; night: RoutineItem[] }> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { morning: [], night: [] }
@@ -48,87 +42,51 @@ export async function loadRoutineItems(): Promise<{ morning: RoutineItem[]; nigh
     return { morning: [], night: [] }
   }
 
-  let morning = (data ?? []).filter(r => r.type === 'morning').map(toItem)
-  let night = (data ?? []).filter(r => r.type === 'night').map(toItem)
+  let morning: RoutineItem[] = (data ?? []).filter((r: any) => r.type === 'morning').map((r: any) => ({ id: r.id, text: r.text, position: r.position }))
+  let night: RoutineItem[] = (data ?? []).filter((r: any) => r.type === 'night').map((r: any) => ({ id: r.id, text: r.text, position: r.position }))
 
-  // Auto-seed defaults if user has none of a type
   if (morning.length === 0) {
-    morning = await seedDefaults(user.id, 'morning', DEFAULT_MORNING_TEXTS)
+    const rows = DEFAULT_MORNING.map((text, i) => ({ user_id: user.id, type: 'morning', text, position: i }))
+    const { data: seeded } = await supabase.from('routine_items').insert(rows).select('*')
+    morning = (seeded ?? []).map((r: any) => ({ id: r.id, text: r.text, position: r.position }))
   }
   if (night.length === 0) {
-    night = await seedDefaults(user.id, 'night', DEFAULT_NIGHT_TEXTS)
+    const rows = DEFAULT_NIGHT.map((text, i) => ({ user_id: user.id, type: 'night', text, position: i }))
+    const { data: seeded } = await supabase.from('routine_items').insert(rows).select('*')
+    night = (seeded ?? []).map((r: any) => ({ id: r.id, text: r.text, position: r.position }))
   }
 
   return { morning, night }
 }
 
-function toItem(r: any): RoutineItem {
-  return { id: r.id, text: r.text, position: r.position }
-}
-
-async function seedDefaults(userId: string, type: 'morning' | 'night', texts: string[]): Promise<RoutineItem[]> {
-  const rows = texts.map((text, i) => ({
-    user_id: userId,
-    type,
-    text,
-    position: i,
-  }))
-  const { data, error } = await supabase
-    .from('routine_items')
-    .insert(rows)
-    .select('*')
-
-  if (error) {
-    console.error(`seedDefaults ${type} error:`, error)
-    return []
-  }
-  return (data ?? []).map(toItem)
-}
-
-// Save the entire list (full sync — wipes user's items of this type and re-inserts).
-// Simpler than diffing; routines are small (max ~20 items).
 export async function saveRoutineItems(type: 'morning' | 'night', items: RoutineItem[]): Promise<RoutineItem[]> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return items
 
-  // Delete all existing items of this type
-  await supabase
-    .from('routine_items')
-    .delete()
-    .eq('user_id', user.id)
-    .eq('type', type)
-
-  // Re-insert with fresh positions
+  await supabase.from('routine_items').delete().eq('user_id', user.id).eq('type', type)
   if (items.length === 0) return []
+
   const rows = items.map((item, i) => ({
     user_id: user.id,
     type,
     text: item.text,
     position: i,
   }))
-  const { data, error } = await supabase
-    .from('routine_items')
-    .insert(rows)
-    .select('*')
-
+  const { data, error } = await supabase.from('routine_items').insert(rows).select('*')
   if (error) {
     console.error('saveRoutineItems error:', error)
     return items
   }
-  return (data ?? []).map(toItem)
+  return (data ?? []).map((r: any) => ({ id: r.id, text: r.text, position: r.position }))
 }
 
-// ============ ROUTINE COMPLETIONS ============
-
-// Load all completions for the current user, keyed by date.
-export async function loadRoutineCompletions(): Promise<RoutineCompletionMap> {
+export async function loadRoutineCompletions(): Promise<Record<string, RoutineCompletion>> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return {}
 
-  // Need to join routine_completions with routine_items to know type.
   const { data, error } = await supabase
     .from('routine_completions')
-    .select('date, routine_item_id, routine_items!inner(type)')
+    .select('date, routine_item_id, type, skip_reasons')
     .eq('user_id', user.id)
 
   if (error) {
@@ -136,44 +94,47 @@ export async function loadRoutineCompletions(): Promise<RoutineCompletionMap> {
     return {}
   }
 
-  const map: RoutineCompletionMap = {}
+  const map: Record<string, RoutineCompletion> = {}
   for (const row of (data ?? []) as any[]) {
-    const date = row.date
-    const type = row.routine_items.type as 'morning' | 'night'
-    if (!map[date]) map[date] = { morning: [], night: [] }
-    map[date][type].push(row.routine_item_id)
+    if (!map[row.date]) {
+      map[row.date] = { morning: [], night: [], skipReasons: {} }
+    }
+    if (row.type === 'morning' && row.routine_item_id) {
+      map[row.date].morning!.push(row.routine_item_id)
+    }
+    if (row.type === 'night' && row.routine_item_id) {
+      map[row.date].night!.push(row.routine_item_id)
+    }
+    if (row.skip_reasons && typeof row.skip_reasons === 'object' && !Array.isArray(row.skip_reasons)) {
+      map[row.date].skipReasons = { ...map[row.date].skipReasons, ...row.skip_reasons }
+    }
   }
   return map
 }
 
-// Save completions for a single day (full sync for that day).
 export async function saveRoutineCompletionsForDate(
   date: string,
-  morningIds: string[],
-  nightIds: string[]
+  morning: string[],
+  night: string[],
+  skipReasons: Record<string, string> = {}
 ): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
 
-  // Delete all completions for this user/date
-  await supabase
-    .from('routine_completions')
-    .delete()
-    .eq('user_id', user.id)
-    .eq('date', date)
+  await supabase.from('routine_completions').delete().eq('user_id', user.id).eq('date', date)
 
-  const allIds = [...morningIds, ...nightIds]
-  if (allIds.length === 0) return
+  const rows: any[] = []
+  for (const id of morning) rows.push({ user_id: user.id, date, routine_item_id: id, type: 'morning', skip_reasons: {} })
+  for (const id of night) rows.push({ user_id: user.id, date, routine_item_id: id, type: 'night', skip_reasons: {} })
 
-  const rows = allIds.map(id => ({
-    user_id: user.id,
-    date,
-    routine_item_id: id,
-  }))
+  if (Object.keys(skipReasons).length > 0 && rows.length > 0) {
+    rows[0].skip_reasons = skipReasons
+  } else if (Object.keys(skipReasons).length > 0 && rows.length === 0) {
+    rows.push({ user_id: user.id, date, routine_item_id: null, type: 'skip_meta', skip_reasons: skipReasons })
+  }
 
-  const { error } = await supabase
-    .from('routine_completions')
-    .insert(rows)
+  if (rows.length === 0) return
 
+  const { error } = await supabase.from('routine_completions').insert(rows)
   if (error) console.error('saveRoutineCompletionsForDate error:', error)
 }
