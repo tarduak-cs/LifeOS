@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, Dumbbell, BookOpen, Sun, Moon, TrendingUp, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Search, Download, Upload, Calendar, Heart, Award, Settings, PanelLeftClose, PanelLeftOpen, Sparkles, AlertCircle } from 'lucide-react';
+import { Home, Dumbbell, BookOpen, MessageSquare, Sun, Moon, TrendingUp, Plus, Trash2, Check, X, ChevronLeft, ChevronRight, Search, Download, Upload, Calendar, Heart, Award, Settings, PanelLeftClose, PanelLeftOpen, Sparkles, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { loadProfile, saveProfile as saveProfileToDB } from '../lib/profile';
 import { loadHealthLogs, saveHealthLog } from '../lib/health';
@@ -11,6 +11,7 @@ import { useSaveStatus, SaveIndicator } from '../lib/saveStatus';
 import { loadBehaviors, saveBehaviors as saveBehaviorsToDB, loadBehaviorLogs, saveBehaviorLogsForDate } from '../lib/behaviors';
 import { loadSymptoms, saveSymptoms as saveSymptomsToDB, loadSymptomLogs, saveSymptomLogsForDate } from '../lib/symptoms';
 import { loadWorkouts, saveWorkoutForDate, loadPRs, savePR, deletePR, loadPrograms, savePrograms as saveProgramsToDB } from '../lib/workouts';
+import { submitFeedback } from '../lib/feedback';
 
 // ============ STORAGE ============
 const storage = {
@@ -83,7 +84,7 @@ export default function LifeOS() {
     const [date, setDate] = useState(todayKey());
     const [loading, setLoading] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(true);
-
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
     const [profile, setProfile] = useState({ name: '' });
     const [healthLog, setHealthLog] = useState({});
     const [morningRoutine, setMorningRoutine] = useState(DEFAULT_MORNING);
@@ -255,6 +256,13 @@ export default function LifeOS() {
                     </div>
                 </main>
             </div>
+            {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
+            <button
+                onClick={() => setFeedbackOpen(true)}
+                className="fixed bottom-20 md:bottom-4 right-4 z-40 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-full px-4 py-2 text-xs flex items-center gap-2 shadow-lg"
+            >
+                <MessageSquare size={14} /> Feedback
+            </button>
         </div>
     );
 }
@@ -1384,6 +1392,79 @@ function SettingsView({ profile, saveProfile, behaviors, saveBehaviors, healthLo
                     {importStatus && <div className="text-xs text-zinc-400">{importStatus}</div>}
                 </div>
             </Section>
+        </div>
+    );
+}
+function FeedbackModal({ onClose }) {
+    const [type, setType] = useState('idea');
+    const [message, setMessage] = useState('');
+    const [status, setStatus] = useState('idle'); // idle | sending | sent | error
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const submit = async () => {
+        if (!message.trim()) return;
+        setStatus('sending');
+        const result = await submitFeedback({
+            type,
+            message: message.trim(),
+            url: window.location.href,
+        });
+        if (result.ok) {
+            setStatus('sent');
+            setTimeout(() => onClose(), 1500);
+        } else {
+            setStatus('error');
+            setErrorMsg(result.error || 'Something went wrong');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-medium">Send feedback</h2>
+                    <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300"><X size={18} /></button>
+                </div>
+
+                <div className="text-sm text-zinc-400 mb-4">Found a bug? Have an idea? Let me know.</div>
+
+                <div className="flex gap-2 mb-4">
+                    {[
+                        { id: 'bug', label: '🐛 Bug' },
+                        { id: 'idea', label: '💡 Idea' },
+                        { id: 'other', label: '💬 Other' },
+                    ].map(t => (
+                        <button
+                            key={t.id}
+                            onClick={() => setType(t.id)}
+                            className={`px-3 py-1.5 text-xs rounded border ${type === t.id ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}
+                        >
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+
+                <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={5}
+                    placeholder={type === 'bug' ? 'What broke? When did it happen? What did you expect?' : type === 'idea' ? 'What would you like to see?' : 'Tell me anything...'}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-zinc-500 resize-none"
+                />
+
+                {status === 'error' && <div className="text-xs text-red-400 mt-2">{errorMsg}</div>}
+
+                <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={onClose} className="px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200">Cancel</button>
+                    <button
+                        onClick={submit}
+                        disabled={!message.trim() || status === 'sending' || status === 'sent'}
+                        className="px-4 py-2 bg-teal-600/20 border border-teal-500/40 text-teal-300 rounded text-sm hover:bg-teal-600/30 disabled:opacity-40"
+                    >
+                        {status === 'sending' ? 'Sending…' : status === 'sent' ? 'Sent ✓' : 'Send'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
