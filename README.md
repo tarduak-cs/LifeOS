@@ -54,7 +54,6 @@ What I owned:
 What Claude did:
 - **Code generation** — most of the React components were AI-generated based on my prompts
 - **Bug fixes** — finding edge cases I missed
-- **Refactoring suggestions** — though I was selective about which to accept
 
 The combination let me ship a real product faster than I could have alone, while still understanding the codebase deeply enough to maintain and extend it.
 
